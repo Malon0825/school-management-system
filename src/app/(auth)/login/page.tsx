@@ -3,16 +3,37 @@
 import Image from "next/image";
 import { useState } from "react";
 import { Eye, EyeOff, Lock, User, ShieldCheck } from "lucide-react";
+import { useAuth } from "@/shared/hooks/useAuth";
 
 export default function LoginPage() {
+  const { login } = useAuth();
+
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setIsLoading(true);
-    // Simulate network delay for UI demo
-    setTimeout(() => setIsLoading(false), 2000);
+
+    console.log("[LoginPage] Submitting login form", { email });
+
+    try {
+      await login(email, password);
+      console.log("[LoginPage] Login completed, redirect handled by AuthContext");
+    } catch (err) {
+      console.error("[LoginPage] Login error", err);
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Unable to sign in. Please check your credentials and try again.";
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -63,6 +84,8 @@ export default function LoginPage() {
                   className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#F4B400]/50 focus:border-[#F4B400] transition-all bg-gray-50 focus:bg-white outline-none text-gray-800 placeholder-gray-400"
                   placeholder="Enter your ID"
                   required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
             </div>
@@ -85,6 +108,8 @@ export default function LoginPage() {
                   className="block w-full pl-10 pr-10 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#F4B400]/50 focus:border-[#F4B400] transition-all bg-gray-50 focus:bg-white outline-none text-gray-800 placeholder-gray-400"
                   placeholder="••••••••"
                   required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                 />
                 <button
                   type="button"
@@ -112,6 +137,12 @@ export default function LoginPage() {
                 "Sign In"
               )}
             </button>
+
+            {error && (
+              <p className="text-xs text-red-600 text-center mt-2">
+                {error}
+              </p>
+            )}
 
             {/* Help Text */}
             <div className="text-center">
