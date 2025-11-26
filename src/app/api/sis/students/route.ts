@@ -99,10 +99,13 @@ function buildStudentDto(
   };
 }
 
-function generateQrHash(studentSchoolId: string): string {
-  const randomPart = Math.random().toString(36).slice(2, 10);
-  const timePart = Date.now().toString(36);
-  return `qr_${randomPart}_${timePart}_${studentSchoolId}`;
+function generateQrHash(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  const hex = Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return `qr_${hex}`;
 }
 
 interface CreateStudentBody {
@@ -503,7 +506,7 @@ export async function POST(request: NextRequest) {
     section_id: sectionRow.id,
     guardian_phone: value.guardianPhone,
     guardian_email: value.guardianEmail,
-    qr_hash: generateQrHash(studentSchoolId),
+    qr_hash: generateQrHash(),
     is_active: isActive,
   };
 
@@ -611,7 +614,7 @@ export async function PATCH(request: NextRequest) {
     guardian_email: value.guardianEmail,
     is_active: isActive,
     ...(nextStudentSchoolId !== existingStudentRow.student_school_id
-      ? { qr_hash: generateQrHash(nextStudentSchoolId) }
+      ? { qr_hash: generateQrHash() }
       : {}),
   };
 

@@ -742,77 +742,6 @@ export class EventService implements IEventService {
   }
 
   /**
-   * Validate audience configuration structure and rules.
-   */
-  private validateAudienceConfig(
-    input: unknown
-  ): ValidationResult<EventAudienceConfig> {
-    const errors: ValidationErrorDetail[] = [];
-
-    if (!input || typeof input !== "object") {
-      errors.push({
-        field: "audienceConfig",
-        message: "Audience configuration is required",
-        code: "REQUIRED",
-      });
-      return { isValid: false, errors };
-    }
-
-    const config = input as Record<string, unknown>;
-
-    // Check version
-    if (config.version !== 1) {
-      errors.push({
-        field: "audienceConfig.version",
-        message: "Audience config version must be 1",
-        code: "INVALID_VERSION",
-      });
-    }
-
-    // Check rules array
-    if (!Array.isArray(config.rules)) {
-      errors.push({
-        field: "audienceConfig.rules",
-        message: "Audience rules must be an array",
-        code: "INVALID_TYPE",
-      });
-      return { isValid: false, errors };
-    }
-
-    // Validate each rule
-    const rules = config.rules as AudienceRule[];
-    const hasIncludeRule = rules.some((rule) => rule.effect === "include");
-
-    if (!hasIncludeRule) {
-      errors.push({
-        field: "audienceConfig.rules",
-        message: "At least one include rule is required",
-        code: "NO_INCLUDE_RULE",
-      });
-    }
-
-    // Validate individual rules
-    for (let i = 0; i < rules.length; i++) {
-      const rule = rules[i];
-      const ruleErrors = this.validateAudienceRule(rule, i);
-      errors.push(...ruleErrors);
-    }
-
-    if (errors.length > 0) {
-      return { isValid: false, errors };
-    }
-
-    return {
-      isValid: true,
-      errors: [],
-      data: {
-        version: 1,
-        rules: rules,
-      },
-    };
-  }
-
-  /**
    * Validate a single audience rule.
    */
   private validateAudienceRule(
@@ -1033,6 +962,120 @@ export class EventService implements IEventService {
       errors: [],
       data: config as unknown as EventSessionConfig,
     };
+  }
+
+  /**
+   * Validate audience configuration structure.
+   */
+  private validateAudienceConfig(
+    input: unknown
+  ): ValidationResult<EventAudienceConfig> {
+    const errors: ValidationErrorDetail[] = [];
+
+    if (!input || typeof input !== "object") {
+      errors.push({
+        field: "audienceConfig",
+        message: "Audience configuration is required",
+        code: "REQUIRED",
+      });
+      return { isValid: false, errors };
+    }
+
+    const config = input as Record<string, unknown>;
+
+    // Check version
+    if (config.version !== 1) {
+      errors.push({
+        field: "audienceConfig.version",
+        message: "Audience config version must be 1",
+        code: "INVALID_VERSION",
+      });
+    }
+
+    // Check rules array
+    if (!Array.isArray(config.rules)) {
+      errors.push({
+        field: "audienceConfig.rules",
+        message: "Audience rules must be an array",
+        code: "INVALID_TYPE",
+      });
+      return { isValid: false, errors };
+    }
+
+    // Validate each rule
+    const rules = config.rules as AudienceRule[];
+    const hasIncludeRule = rules.some((rule) => rule.effect === "include");
+
+    if (!hasIncludeRule) {
+      errors.push({
+        field: "audienceConfig.rules",
+        message: "At least one include rule is required",
+        code: "NO_INCLUDE_RULE",
+      });
+    }
+
+    for (let i = 0; i < rules.length; i++) {
+      const rule = rules[i];
+      const ruleErrors = this.validateAudienceRule(rule, i);
+      errors.push(...ruleErrors);
+    }
+
+    if (errors.length > 0) {
+      return { isValid: false, errors };
+    }
+
+    return {
+      isValid: true,
+      errors: [],
+      data: {
+        version: 1,
+        rules,
+      },
+    };
+  }
+
+  /**
+   * Delete one or more events by ID.
+   *
+   * @param ids - Array of event UUIDs to delete
+   * @returns Number of events deleted
+   */
+  async deleteEvents(ids: string[]): Promise<number> {
+    const errors: ValidationErrorDetail[] = [];
+
+    const normalizedIds = Array.from(
+      new Set(
+        (ids ?? []).map((id) =>
+          typeof id === "string" ? id.trim() : ""
+        )
+      )
+    ).filter((id) => id.length > 0);
+
+    if (normalizedIds.length === 0) {
+      errors.push({
+        field: "ids",
+        message: "At least one event ID is required",
+        code: "REQUIRED",
+      });
+    }
+
+    for (const id of normalizedIds) {
+      if (!this.isValidUuid(id)) {
+        errors.push({
+          field: "ids",
+          message: `Invalid event ID format: ${id}`,
+          code: "INVALID_FORMAT",
+        });
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new ValidationError("Invalid event IDs", errors);
+    }
+
+    const repo = this.eventRepository as EventRepository;
+    const deletedCount = await repo.deleteManyByIds(normalizedIds);
+    return deletedCount;
   }
 
   /**

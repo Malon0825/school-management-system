@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Calendar as CalendarIcon, ShieldAlert, X, QrCode, Users, ChevronDown, ChevronRight, Search, Minus, UserX, Check } from "lucide-react";
+import { Calendar as CalendarIcon, ShieldAlert, X, QrCode, Users, ChevronDown, ChevronRight, Search, Minus, UserX, Check, AlertTriangle, Building2, MapPin, Trash2 } from "lucide-react";
+import { VenueCard, type VenueAvailabilityStatus, type SessionConflict } from "@/components/venue-card";
 import { useRouter } from "next/navigation";
 import { format, eachDayOfInterval, isSameDay } from "date-fns";
 import type { DateRange } from "react-day-picker";
@@ -12,13 +13,24 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TimePicker } from "@/components/ui/time-picker";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 // ============================================================================
 // Audience Configuration Types
@@ -198,6 +210,20 @@ interface Facility {
   status: "operational" | "maintenance" | "out_of_service" | "retired";
 }
 
+/**
+ * Venue availability result from the API.
+ */
+interface VenueAvailabilityResult {
+  facilityId: string;
+  facilityName: string;
+  facilityLocation: string;
+  facilityImageUrl: string | null;
+  facilityCapacity: number | null;
+  status: VenueAvailabilityStatus;
+  conflicts: SessionConflict[];
+  availabilityMap: Record<string, boolean>;
+}
+
 type SessionPeriod = "morning" | "afternoon" | "evening";
 
 type SessionDirection = "in" | "out";
@@ -291,6 +317,50 @@ function createDefaultDateConfig(dateStr: string): DateSessionConfig {
   };
 }
 
+function haveUniformSessionSchedule(
+  dates: EventEditData["sessionConfig"]["dates"] | undefined
+): boolean {
+  if (!dates || dates.length <= 1) {
+    return true;
+  }
+
+  const normalizeSessions = (
+    sessions: EventEditData["sessionConfig"]["dates"][number]["sessions"]
+  ) =>
+    [...sessions]
+      .map((session) => ({
+        id: session.id,
+        period: session.period,
+        direction: session.direction,
+        opens: session.opens,
+        lateAfter: session.lateAfter ?? null,
+        closes: session.closes,
+      }))
+      .sort((a, b) => a.id.localeCompare(b.id));
+
+  const [first, ...rest] = dates;
+  const firstNormalized = normalizeSessions(first.sessions);
+
+  return rest.every((date) => {
+    const current = normalizeSessions(date.sessions);
+    if (current.length !== firstNormalized.length) {
+      return false;
+    }
+
+    return current.every((session, index) => {
+      const baseline = firstNormalized[index];
+      return (
+        session.id === baseline.id &&
+        session.period === baseline.period &&
+        session.direction === baseline.direction &&
+        session.opens === baseline.opens &&
+        (session.lateAfter ?? null) === (baseline.lateAfter ?? null) &&
+        session.closes === baseline.closes
+      );
+    });
+  });
+}
+
 function shouldRedirectToLogin(response: Response): boolean {
   if (response.status === 401) {
     if (typeof window !== "undefined") {
@@ -299,6 +369,114 @@ function shouldRedirectToLogin(response: Response): boolean {
     return true;
   }
   return false;
+}
+
+// ============================================================================
+// Session Time Conflict Detection
+// ============================================================================
+
+interface SessionTimeWarning {
+  sessionId: string;
+  field: "opens" | "lateAfter" | "closes";
+  message: string;
+  severity: "error" | "warning";
+}
+
+/**
+ * Parse a time string (HH:mm) to minutes since midnight for comparison.
+ * Returns null if the time is empty or invalid.
+ */
+function parseTimeToMinutes(time: string): number | null {
+  if (!time || !time.includes(":")) return null;
+  const [hours, minutes] = time.split(":").map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return null;
+  return hours * 60 + minutes;
+}
+
+/**
+ * Detect time conflicts within and between sessions.
+ * Returns an array of warnings to display.
+ */
+function detectSessionTimeConflicts(
+  sessions: AttendanceSessionConfig[],
+  enabledPeriods: Set<SessionPeriod>
+): SessionTimeWarning[] {
+  const warnings: SessionTimeWarning[] = [];
+  
+  // Filter to only enabled sessions and sort by expected order
+  const periodOrder: SessionPeriod[] = ["morning", "afternoon", "evening"];
+  const directionOrder: SessionDirection[] = ["in", "out"];
+  
+  const enabledSessions = sessions
+    .filter((s) => enabledPeriods.has(s.period))
+    .sort((a, b) => {
+      const periodDiff = periodOrder.indexOf(a.period) - periodOrder.indexOf(b.period);
+      if (periodDiff !== 0) return periodDiff;
+      return directionOrder.indexOf(a.direction) - directionOrder.indexOf(b.direction);
+    });
+
+  // Check each session for internal conflicts
+  for (const session of enabledSessions) {
+    const opens = parseTimeToMinutes(session.opens);
+    const closes = parseTimeToMinutes(session.closes);
+    const lateAfter = parseTimeToMinutes(session.lateAfter);
+
+    // Check: opens should be before closes
+    if (opens !== null && closes !== null && opens >= closes) {
+      warnings.push({
+        sessionId: session.id,
+        field: "closes",
+        message: `"Closes" (${session.closes}) must be after "Opens" (${session.opens})`,
+        severity: "error",
+      });
+    }
+
+    // Check: lateAfter should be between opens and closes (for entry sessions)
+    if (session.supportsLateAfter && lateAfter !== null) {
+      if (opens !== null && lateAfter < opens) {
+        warnings.push({
+          sessionId: session.id,
+          field: "lateAfter",
+          message: `"Late After" (${session.lateAfter}) should not be before "Opens" (${session.opens})`,
+          severity: "warning",
+        });
+      }
+      if (closes !== null && lateAfter > closes) {
+        warnings.push({
+          sessionId: session.id,
+          field: "lateAfter",
+          message: `"Late After" (${session.lateAfter}) should not be after "Closes" (${session.closes})`,
+          severity: "warning",
+        });
+      }
+    }
+  }
+
+  // Check for overlaps between consecutive sessions
+  for (let i = 0; i < enabledSessions.length - 1; i++) {
+    const current = enabledSessions[i];
+    const next = enabledSessions[i + 1];
+    
+    const currentCloses = parseTimeToMinutes(current.closes);
+    const nextOpens = parseTimeToMinutes(next.opens);
+
+    if (currentCloses !== null && nextOpens !== null && currentCloses > nextOpens) {
+      warnings.push({
+        sessionId: current.id,
+        field: "closes",
+        message: `"${current.name}" closes at ${current.closes}, but "${next.name}" opens at ${next.opens}. Sessions overlap.`,
+        severity: "error",
+      });
+      warnings.push({
+        sessionId: next.id,
+        field: "opens",
+        message: `"${next.name}" opens at ${next.opens}, but "${current.name}" closes at ${current.closes}. Sessions overlap.`,
+        severity: "error",
+      });
+    }
+  }
+
+  return warnings;
 }
 
 export default function EventsPage() {
@@ -315,14 +493,13 @@ export default function EventsPage() {
   const [useSameScheduleForAllDays, setUseSameScheduleForAllDays] = useState(true);
   
   const [facilities, setFacilities] = useState<Facility[]>([]);
-  const [selectedFacilityId, setSelectedFacilityId] = useState("");
-  const [isLoadingFacilities, setIsLoadingFacilities] = useState(false);
-  const [facilitiesError, setFacilitiesError] = useState<string | null>(null);
-
   const operationalFacilities = useMemo(
     () => facilities.filter((facility) => facility.status === "operational"),
     [facilities]
   );
+  const [selectedFacilityId, setSelectedFacilityId] = useState("");
+  const [isLoadingFacilities, setIsLoadingFacilities] = useState(false);
+  const [facilitiesError, setFacilitiesError] = useState<string | null>(null);
 
   // Audience filter state
   const [levels, setLevels] = useState<LevelDto[]>([]);
@@ -349,6 +526,7 @@ export default function EventsPage() {
 
   // Create event form state
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
+  const [createEventError, setCreateEventError] = useState<string | null>(null);
   const [createEventTitle, setCreateEventTitle] = useState("");
 
   // Events list state
@@ -356,12 +534,45 @@ export default function EventsPage() {
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [eventsError, setEventsError] = useState<string | null>(null);
 
+  // Events bulk selection state
+  const [selectedEventIds, setSelectedEventIds] = useState<Set<string>>(new Set());
+  const [isDeletingEvents, setIsDeletingEvents] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
   // Edit event state
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [isLoadingEditEvent, setIsLoadingEditEvent] = useState(false);
 
+  // Venue availability state
+  const [venueAvailability, setVenueAvailability] = useState<VenueAvailabilityResult[]>([]);
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+  const [venueSearchQuery, setVenueSearchQuery] = useState("");
+
   // Derived: whether we're in edit mode
   const isEditMode = editingEventId !== null;
+
+  // Derived: filtered venues based on search query
+  const filteredVenues = useMemo(() => {
+    if (!venueSearchQuery.trim()) {
+      return venueAvailability;
+    }
+    const query = venueSearchQuery.toLowerCase();
+    return venueAvailability.filter(
+      (v) =>
+        v.facilityName.toLowerCase().includes(query) ||
+        v.facilityLocation.toLowerCase().includes(query)
+    );
+  }, [venueAvailability, venueSearchQuery]);
+
+  // Derived: venue availability summary
+  const venueAvailabilitySummary = useMemo(() => {
+    return {
+      total: venueAvailability.length,
+      available: venueAvailability.filter((v) => v.status === "available").length,
+      partial: venueAvailability.filter((v) => v.status === "partial").length,
+      unavailable: venueAvailability.filter((v) => v.status === "unavailable").length,
+    };
+  }, [venueAvailability]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -451,6 +662,8 @@ export default function EventsPage() {
       }
 
       setEventsList(body.data.events);
+      // Reset selection after reload to avoid stale IDs
+      setSelectedEventIds(new Set());
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to load events.";
       setEventsError(message);
@@ -459,6 +672,101 @@ export default function EventsPage() {
       setIsLoadingEvents(false);
     }
   }, [venueFilter, searchTerm, facilities]);
+
+  // Derived: bulk selection state for events table
+  const eventSelectionState = useMemo(() => {
+    const visibleIds = eventsList.map((e) => e.id);
+    const selectedCount = visibleIds.filter((id) => selectedEventIds.has(id)).length;
+    const totalCount = visibleIds.length;
+
+    const allSelected = totalCount > 0 && selectedCount === totalCount;
+    const partiallySelected = selectedCount > 0 && selectedCount < totalCount;
+
+    return {
+      allSelected,
+      partiallySelected,
+      hasSelection: selectedEventIds.size > 0,
+      selectedCount,
+    };
+  }, [eventsList, selectedEventIds]);
+
+  const handleToggleSelectAllEvents = useCallback(() => {
+    const visibleIds = eventsList.map((e) => e.id);
+    if (visibleIds.length === 0) return;
+
+    const { allSelected } = eventSelectionState;
+    if (allSelected) {
+      setSelectedEventIds(new Set());
+    } else {
+      setSelectedEventIds(new Set(visibleIds));
+    }
+  }, [eventsList, eventSelectionState]);
+
+  const handleToggleSelectEvent = useCallback((eventId: string) => {
+    setSelectedEventIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(eventId)) {
+        next.delete(eventId);
+      } else {
+        next.add(eventId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleDeleteSelectedEvents = useCallback(async () => {
+    if (selectedEventIds.size === 0) {
+      toast.warning("No events selected", {
+        description: "Select one or more events from the list to delete.",
+      });
+      return;
+    }
+
+    setIsDeletingEvents(true);
+
+    try {
+      const ids = Array.from(selectedEventIds);
+      const response = await fetch("/api/sems/events", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ids }),
+      });
+
+      if (shouldRedirectToLogin(response)) return;
+
+      const body = (await response.json().catch(() => null)) as {
+        success?: boolean;
+        data?: { deletedCount: number };
+        error?: { message?: string };
+      } | null;
+
+      if (!response.ok || !body?.success) {
+        throw new Error(body?.error?.message ?? "Unable to delete events.");
+      }
+
+      const deletedCount = body.data?.deletedCount ?? 0;
+
+      setEventsList((prev) => prev.filter((event) => !selectedEventIds.has(event.id)));
+      setSelectedEventIds(new Set());
+
+      toast.success("Events deleted", {
+        description:
+          deletedCount > 0
+            ? `${deletedCount} event(s) were removed from the list.`
+            : "No events were deleted.",
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to delete events.";
+      toast.error("Failed to delete events", {
+        description: message,
+      });
+    } finally {
+      setIsDeletingEvents(false);
+    }
+  }, [selectedEventIds]);
 
   // Initial load and refresh on filter changes
   useEffect(() => {
@@ -486,14 +794,115 @@ export default function EventsPage() {
     setDateSessionConfigs(new Map());
     setSelectedConfigDate(null);
     setUseSameScheduleForAllDays(true);
+    setCreateEventError(null);
     setEditingEventId(null);
+    setVenueSearchQuery("");
+    setVenueAvailability([]);
   }, []);
+
+  /**
+   * Check venue availability when dates or sessions change.
+   * 
+   * @remarks
+   * This effect runs whenever the user changes:
+   * - The event date range
+   * - The session configuration for any date
+   * - The event being edited (to exclude it from conflict checks)
+   */
+  useEffect(() => {
+    // Skip if dialog is not open
+    if (!isCreateDialogOpen) return;
+
+    // Skip if no date range selected
+    if (!createEventRange?.from) {
+      setVenueAvailability([]);
+      return;
+    }
+
+    let isCancelled = false;
+
+    async function checkAvailability() {
+      setIsCheckingAvailability(true);
+
+      try {
+        const startDate = format(createEventRange!.from!, "yyyy-MM-dd");
+        const endDate = createEventRange?.to
+          ? format(createEventRange.to, "yyyy-MM-dd")
+          : startDate;
+
+        // Build sessions array from dateSessionConfigs
+        const sessions = Array.from(dateSessionConfigs.entries()).map(([dateStr, config]) => ({
+          date: dateStr,
+          sessions: config.sessions
+            .filter((s) => config.enabledPeriods.has(s.period))
+            .map((s) => ({
+              id: s.id,
+              name: s.name,
+              period: s.period,
+              direction: s.direction,
+              opens: s.opens,
+              lateAfter: s.supportsLateAfter && s.lateAfter ? s.lateAfter : null,
+              closes: s.closes,
+            })),
+        }));
+
+        // Build query params
+        const params = new URLSearchParams();
+        params.set("startDate", startDate);
+        params.set("endDate", endDate);
+        params.set("sessions", JSON.stringify(sessions));
+        if (editingEventId) {
+          params.set("excludeEventId", editingEventId);
+        }
+
+        const response = await fetch(`/api/facilities/availability?${params.toString()}`);
+
+        if (isCancelled) return;
+
+        if (response.ok) {
+          const body = await response.json();
+          if (body.success && body.data?.venues) {
+            setVenueAvailability(body.data.venues);
+          }
+        } else {
+          console.error("[VenueAvailability] Failed to check availability");
+          // On error, show all facilities as available (graceful degradation)
+          setVenueAvailability(
+            operationalFacilities.map((f) => ({
+              facilityId: f.id,
+              facilityName: f.name,
+              facilityLocation: f.location,
+              facilityImageUrl: f.imageUrl,
+              facilityCapacity: f.capacity,
+              status: "available" as const,
+              conflicts: [],
+              availabilityMap: {},
+            }))
+          );
+        }
+      } catch (error) {
+        if (isCancelled) return;
+        console.error("[VenueAvailability] Error:", error);
+      } finally {
+        if (!isCancelled) {
+          setIsCheckingAvailability(false);
+        }
+      }
+    }
+
+    void checkAvailability();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isCreateDialogOpen, createEventRange, dateSessionConfigs, editingEventId, operationalFacilities]);
 
   /**
    * Open edit dialog and load event data.
    */
   const openEditDialog = useCallback(async (eventId: string) => {
     setIsLoadingEditEvent(true);
+    setCreateEventError(null);
     setEditingEventId(eventId);
     setIsCreateDialogOpen(true);
 
@@ -518,17 +927,32 @@ export default function EventsPage() {
       // Populate form with event data
       setCreateEventTitle(event.title);
       
-      // Set date range
-      if (event.startDate) {
+      // Set date range, preferring sessionConfig.dates if available.
+      // This avoids blank session UI when start_date/end_date drift from session_config.
+      const sessionDates = event.sessionConfig?.dates?.map((d) => d.date).filter(Boolean) ?? [];
+
+      if (sessionDates.length > 0) {
+        const sortedDates = [...sessionDates].sort();
+        const start = new Date(sortedDates[0]);
+        const end = new Date(sortedDates[sortedDates.length - 1]);
+        setCreateEventRange({ from: start, to: end });
+      } else if (event.startDate) {
         const start = new Date(event.startDate);
         const end = event.endDate ? new Date(event.endDate) : start;
         setCreateEventRange({ from: start, to: end });
+      } else {
+        setCreateEventRange(undefined);
       }
 
       // Set facility
       if (event.facility) {
         setSelectedFacilityId(event.facility.id);
       }
+
+      // Derive session schedule mode from existing session config
+      setUseSameScheduleForAllDays(
+        haveUniformSessionSchedule(event.sessionConfig?.dates)
+      );
 
       // Set audience mode and selections from audienceConfig
       const audienceConfig = event.audienceConfig;
@@ -553,18 +977,25 @@ export default function EventsPage() {
           }
         }
 
-        // Set level selections
+        // Set level and section selections
         const levelIds = new Set<string>();
-        includeRules.filter((r) => r.kind === "LEVEL").forEach((r) => {
-          if ("levelIds" in r) r.levelIds.forEach((id) => levelIds.add(id));
-        });
-        setSelectedLevelIds(levelIds);
-
-        // Set section selections
         const sectionIds = new Set<string>();
-        includeRules.filter((r) => r.kind === "SECTION").forEach((r) => {
-          if ("sectionIds" in r) r.sectionIds.forEach((id) => sectionIds.add(id));
+
+        includeRules.forEach((rule) => {
+          if (rule.kind === "LEVEL" && "levelIds" in rule) {
+            rule.levelIds.forEach((levelId) => {
+              levelIds.add(levelId);
+              // Select all sections under this level so the UI treats it as fully selected
+              sections
+                .filter((s) => s.levelId === levelId)
+                .forEach((s) => sectionIds.add(s.id));
+            });
+          } else if (rule.kind === "SECTION" && "sectionIds" in rule) {
+            rule.sectionIds.forEach((sectionId) => sectionIds.add(sectionId));
+          }
         });
+
+        setSelectedLevelIds(levelIds);
         setSelectedSectionIds(sectionIds);
 
         // Set student selections
@@ -637,12 +1068,12 @@ export default function EventsPage() {
 
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to load event.";
-      toast.error(message);
+      setCreateEventError(message);
       console.error("[EventsPage] Failed to load event for editing:", error);
     } finally {
       setIsLoadingEditEvent(false);
     }
-  }, []);
+  }, [sections]);
 
   // Load levels and sections for audience filter
   useEffect(() => {
@@ -1057,6 +1488,23 @@ export default function EventsPage() {
     return dateSessionConfigs.get(selectedConfigDate) ?? null;
   }, [selectedConfigDate, dateSessionConfigs]);
 
+  // Compute session time warnings for real-time validation
+  const sessionTimeWarnings = useMemo((): SessionTimeWarning[] => {
+    if (!currentDateConfig) return [];
+    return detectSessionTimeConflicts(
+      currentDateConfig.sessions,
+      currentDateConfig.enabledPeriods
+    );
+  }, [currentDateConfig]);
+
+  // Helper to get warnings for a specific session
+  const getWarningsForSession = useCallback(
+    (sessionId: string): SessionTimeWarning[] => {
+      return sessionTimeWarnings.filter((w) => w.sessionId === sessionId);
+    },
+    [sessionTimeWarnings]
+  );
+
   // Toggle period for the selected date
   const toggleSessionPeriod = useCallback(
     (period: SessionPeriod) => {
@@ -1145,12 +1593,66 @@ export default function EventsPage() {
   }, [dateSessionConfigs]);
 
   /**
+   * Validate all dates for session time conflicts.
+   * Returns the first error message if any date has conflicts, otherwise null.
+   */
+  const validateAllSessionConfigs = useCallback((): string | null => {
+    for (const [dateStr, config] of dateSessionConfigs.entries()) {
+      const warnings = detectSessionTimeConflicts(config.sessions, config.enabledPeriods);
+      const errors = warnings.filter((w) => w.severity === "error");
+      if (errors.length > 0) {
+        const formattedDate = format(new Date(dateStr), "MMM d, yyyy");
+        return `${formattedDate}: ${errors[0].message}`;
+      }
+    }
+    return null;
+  }, [dateSessionConfigs]);
+
+  /**
    * Handle Create/Update Event form submission.
    * 
    * Calls POST or PUT /api/sems/events based on edit mode.
    */
   const handleEventFormSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setCreateEventError(null);
+
+    // Validate session time conflicts before submission
+    const sessionError = validateAllSessionConfigs();
+    if (sessionError) {
+      toast.error("Session time conflict", {
+        description: sessionError,
+      });
+      return;
+    }
+
+    if (isCheckingAvailability) {
+      toast.warning("Checking venue availability", {
+        description: "Please wait for the availability check to finish before saving the event.",
+      });
+      return;
+    }
+
+    if (selectedFacilityId) {
+      const selectedVenue = venueAvailability.find(
+        (v) => v.facilityId === selectedFacilityId,
+      );
+
+      if (selectedVenue && (selectedVenue.status === "unavailable" || selectedVenue.conflicts.length > 0)) {
+        const firstConflict = selectedVenue.conflicts[0];
+        const conflictSummary = firstConflict
+          ? `${firstConflict.date} • ${firstConflict.timeRange} • ${firstConflict.conflictingEventTitle}`
+          : undefined;
+
+        toast.error("Venue has conflicting sessions", {
+          description:
+            conflictSummary ??
+            "The selected venue is not available for one or more of the configured sessions.",
+        });
+        return;
+      }
+    }
+
     setIsCreatingEvent(true);
 
     try {
@@ -1211,12 +1713,20 @@ export default function EventsPage() {
 
     } catch (error) {
       const message = error instanceof Error ? error.message : (editingEventId ? "Unable to update event." : "Unable to create event.");
-      toast.error(message);
+      setCreateEventError(message);
       console.error(`[EventsPage] Failed to ${editingEventId ? "update" : "create"} event:`, error);
     } finally {
       setIsCreatingEvent(false);
     }
-  }, [editingEventId, loadEvents, resetForm]);
+  }, [
+    editingEventId,
+    loadEvents,
+    resetForm,
+    validateAllSessionConfigs,
+    isCheckingAvailability,
+    selectedFacilityId,
+    venueAvailability,
+  ]);
 
   // Show loading state while validating session
   if (loading) {
@@ -1289,6 +1799,48 @@ export default function EventsPage() {
                 <CardDescription>Events scheduled for today with live status.</CardDescription>
               </div>
               <div className="flex items-center gap-2">
+                {eventSelectionState.hasSelection && (
+                  <span className="hidden md:inline text-xs text-gray-500 mr-1">
+                    {eventSelectionState.selectedCount} selected
+                  </span>
+                )}
+
+                <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open: boolean) => {
+                  if (!isDeletingEvents) setIsDeleteDialogOpen(open);
+                }}>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      disabled={!eventSelectionState.hasSelection || isDeletingEvents}
+                      className="rounded-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                      aria-label="Delete selected events"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete selected events?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently remove the selected events and cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={isDeletingEvents}>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        disabled={isDeletingEvents}
+                        onClick={async () => {
+                          await handleDeleteSelectedEvents();
+                          setIsDeleteDialogOpen(false);
+                        }}
+                      >
+                        {isDeletingEvents ? "Deleting..." : "Delete"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
                 <div className="hidden lg:inline-flex items-center">
                   <Select value={venueFilter} onValueChange={setVenueFilter}>
                     <SelectTrigger className="min-w-[160px] pl-3 pr-9 py-1.5 text-sm border border-gray-200 rounded-full bg-white text-gray-700 shadow-sm">
@@ -1319,6 +1871,20 @@ export default function EventsPage() {
               <Table className="min-w-full">
                 <TableHeader>
                   <TableRow className="bg-gray-50">
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={eventSelectionState.allSelected}
+                        ref={(el) => {
+                          if (el) {
+                            (el as unknown as HTMLInputElement).indeterminate =
+                              eventSelectionState.partiallySelected;
+                          }
+                        }}
+                        onCheckedChange={handleToggleSelectAllEvents}
+                        className="data-[state=checked]:bg-[#1B4D3E] data-[state=checked]:border-[#1B4D3E]"
+                        aria-label="Select all events"
+                      />
+                    </TableHead>
                     <TableHead className="font-bold text-[#1B4D3E]">Event Name</TableHead>
                     <TableHead className="font-bold text-[#1B4D3E]">Date</TableHead>
                     <TableHead className="font-bold text-[#1B4D3E]">Time</TableHead>
@@ -1334,7 +1900,7 @@ export default function EventsPage() {
                 >
                   {isLoadingEvents ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8">
+                      <TableCell colSpan={8} className="text-center py-8">
                         <div className="flex items-center justify-center gap-2 text-gray-500">
                           <span className="h-4 w-4 border-2 border-gray-300 border-t-[#1B4D3E] rounded-full animate-spin" />
                           Loading events...
@@ -1343,7 +1909,7 @@ export default function EventsPage() {
                     </TableRow>
                   ) : eventsError ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8">
+                      <TableCell colSpan={8} className="text-center py-8">
                         <p className="text-red-500">{eventsError}</p>
                         <Button
                           variant="outline"
@@ -1357,7 +1923,7 @@ export default function EventsPage() {
                     </TableRow>
                   ) : eventsList.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                      <TableCell colSpan={8} className="text-center py-8 text-gray-500">
                         No events found. Create your first event to get started.
                       </TableCell>
                     </TableRow>
@@ -1388,6 +1954,14 @@ export default function EventsPage() {
                           onClick={() => void openEditDialog(event.id)}
                           className="cursor-pointer transition-all duration-150 hover:bg-white hover:shadow-sm hover:-translate-y-0.5 hover:border-gray-100"
                         >
+                          <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
+                            <Checkbox
+                              checked={selectedEventIds.has(event.id)}
+                              onCheckedChange={() => handleToggleSelectEvent(event.id)}
+                              className="data-[state=checked]:bg-[#1B4D3E] data-[state=checked]:border-[#1B4D3E]"
+                              aria-label="Select event"
+                            />
+                          </TableCell>
                           <TableCell className="font-medium text-gray-900">{event.title}</TableCell>
                           <TableCell className="text-gray-500 whitespace-nowrap">{formatEventDate()}</TableCell>
                           <TableCell className="text-gray-500">{event.timeRange}</TableCell>
@@ -1461,109 +2035,44 @@ export default function EventsPage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2 space-y-1.5">
-                  <label className="block text-sm font-medium text-gray-700">Event Title</label>
-                  <input
-                    name="title"
-                    type="text"
-                    required
-                    value={createEventTitle}
-                    onChange={(e) => setCreateEventTitle(e.target.value)}
-                    placeholder="e.g. Foundation Day"
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
-                    disabled={isCreatingEvent}
-                  />
+              {/* Error display */}
+              {createEventError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-700">{createEventError}</p>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-gray-700">Date</label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        data-empty={!createEventRange?.from}
-                        className={cn(
-                          "w-full justify-start text-left font-normal px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm",
-                          !createEventRange?.from && "text-muted-foreground",
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {createEventRange?.from ? (
-                          createEventRange.to ? (
-                            <span>
-                              {format(createEventRange.from, "MMM d, yyyy")}
-                              {" – "}
-                              {format(createEventRange.to, "MMM d, yyyy")}
-                            </span>
-                          ) : (
-                            <span>{format(createEventRange.from, "MMM d, yyyy")}</span>
-                          )
-                        ) : (
-                          <span>Pick date range</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="range"
-                        selected={createEventRange}
-                        onSelect={setCreateEventRange}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <input
-                    type="hidden"
-                    name="startDate"
-                    value={createEventRange?.from ? createEventRange.from.toISOString().slice(0, 10) : ""}
-                  />
-                  <input
-                    type="hidden"
-                    name="endDate"
-                    value={createEventRange?.to
-                      ? createEventRange.to.toISOString().slice(0, 10)
-                      : createEventRange?.from
-                      ? createEventRange.from.toISOString().slice(0, 10)
-                      : ""}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-gray-700">Venue</label>
-                  <Select
-                    value={selectedFacilityId}
-                    onValueChange={setSelectedFacilityId}
-                  >
-                    <SelectTrigger className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm">
-                      <SelectValue
-                        placeholder={
-                          isLoadingFacilities
-                            ? "Loading venues..."
-                            : facilitiesError
-                            ? "Failed to load venues"
-                            : operationalFacilities.length
-                            ? "Select venue"
-                            : facilities.length
-                            ? "No operational venues available"
-                            : "No facilities available"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {operationalFacilities.map((facility) => (
-                        <SelectItem
-                          key={facility.id}
-                          value={facility.id}
-                          className="data-[highlighted]:bg-[#1B4D3E] data-[highlighted]:text-white cursor-pointer"
-                        >
-                          {facility.name} - {facility.location}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <input type="hidden" name="facilityId" value={selectedFacilityId} />
-                </div>
+              )}
+
+              {/* Event Title */}
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-gray-700">Event Title</label>
+                <input
+                  name="title"
+                  type="text"
+                  required
+                  value={createEventTitle}
+                  onChange={(e) => setCreateEventTitle(e.target.value)}
+                  placeholder="e.g. Foundation Day"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                  disabled={isCreatingEvent}
+                />
               </div>
+
+              {/* Hidden fields for form submission */}
+              <input type="hidden" name="facilityId" value={selectedFacilityId} />
+              <input
+                type="hidden"
+                name="startDate"
+                value={createEventRange?.from ? createEventRange.from.toISOString().slice(0, 10) : ""}
+              />
+              <input
+                type="hidden"
+                name="endDate"
+                value={createEventRange?.to
+                  ? createEventRange.to.toISOString().slice(0, 10)
+                  : createEventRange?.from
+                  ? createEventRange.from.toISOString().slice(0, 10)
+                  : ""}
+              />
 
               {/* Audience Filter - Full Width */}
               <div className="space-y-4">
@@ -2050,6 +2559,50 @@ export default function EventsPage() {
                 />
               </div>
 
+              {/* Date Range Picker */}
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-gray-800">Event Date</p>
+                <p className="text-xs text-gray-500">
+                  Select the date or date range for this event.
+                </p>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      data-empty={!createEventRange?.from}
+                      className={cn(
+                        "w-full justify-start text-left font-normal px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm",
+                        !createEventRange?.from && "text-muted-foreground",
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {createEventRange?.from ? (
+                        createEventRange.to ? (
+                          <span>
+                            {format(createEventRange.from, "MMM d, yyyy")}
+                            {" – "}
+                            {format(createEventRange.to, "MMM d, yyyy")}
+                          </span>
+                        ) : (
+                          <span>{format(createEventRange.from, "MMM d, yyyy")}</span>
+                        )
+                      ) : (
+                        <span>Pick date or date range</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="range"
+                      selected={createEventRange}
+                      onSelect={setCreateEventRange}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
               {/* Session Configuration */}
               <div className="space-y-2">
                 <p className="text-sm font-semibold text-gray-800">Session Configuration</p>
@@ -2214,6 +2767,25 @@ export default function EventsPage() {
                       })}
                     </div>
 
+                    {/* Time conflict warnings banner */}
+                    {sessionTimeWarnings.length > 0 && (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-amber-800">
+                            {sessionTimeWarnings.some((w) => w.severity === "error")
+                              ? "Time conflicts detected"
+                              : "Time configuration warnings"}
+                          </p>
+                          <p className="text-xs text-amber-700">
+                            {sessionTimeWarnings.some((w) => w.severity === "error")
+                              ? "Please fix the overlapping session times below before saving."
+                              : "Review the highlighted times to ensure they are configured correctly."}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Sessions list */}
                     <div className="border border-gray-200 rounded-lg divide-y">
                       {currentDateConfig.sessions.filter((session) =>
@@ -2226,16 +2798,42 @@ export default function EventsPage() {
 
                       {currentDateConfig.sessions
                         .filter((session) => currentDateConfig.enabledPeriods.has(session.period))
-                        .map((session) => (
-                          <div key={session.id} className="p-3 space-y-2">
+                        .map((session) => {
+                          const sessionWarnings = getWarningsForSession(session.id);
+                          const hasErrors = sessionWarnings.some((w) => w.severity === "error");
+                          
+                          return (
+                          <div key={session.id} className={cn(
+                            "p-3 space-y-2",
+                            hasErrors && "bg-red-50/50"
+                          )}>
                             <div className="flex items-center justify-between">
                               <p className="text-xs font-medium text-gray-800">{session.name}</p>
-                              <Badge
-                                variant="outline"
-                                className="text-[10px] uppercase tracking-wide"
-                              >
-                                {session.direction === "in" ? "Entry" : "Exit"}
-                              </Badge>
+                              <div className="flex items-center gap-2">
+                                {sessionWarnings.length > 0 && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <AlertTriangle className={cn(
+                                        "h-3.5 w-3.5",
+                                        hasErrors ? "text-red-500" : "text-amber-500"
+                                      )} />
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-xs">
+                                      <ul className="text-xs space-y-1">
+                                        {sessionWarnings.map((w, i) => (
+                                          <li key={i}>{w.message}</li>
+                                        ))}
+                                      </ul>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] uppercase tracking-wide"
+                                >
+                                  {session.direction === "in" ? "Entry" : "Exit"}
+                                </Badge>
+                              </div>
                             </div>
                             <div className="grid grid-cols-3 gap-3">
                               <div className="space-y-1">
@@ -2314,8 +2912,27 @@ export default function EventsPage() {
                                 />
                               </div>
                             </div>
+                            {/* Inline warnings for this session */}
+                            {sessionWarnings.length > 0 && (
+                              <div className="space-y-1 pt-1">
+                                {sessionWarnings.map((warning, idx) => (
+                                  <div
+                                    key={idx}
+                                    className={cn(
+                                      "flex items-start gap-1.5 text-[11px] rounded px-2 py-1",
+                                      warning.severity === "error"
+                                        ? "bg-red-100 text-red-700"
+                                        : "bg-amber-100 text-amber-700"
+                                    )}
+                                  >
+                                    <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                                    <span>{warning.message}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                        ))}
+                        );})}
                     </div>
                   </div>
                 )}
@@ -2325,6 +2942,116 @@ export default function EventsPage() {
                   name="sessionConfigJson"
                   value={buildSessionConfigJson()}
                 />
+              </div>
+
+              {/* Venue Selection Grid */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">Select Venue</p>
+                    <p className="text-xs text-gray-500">
+                      Choose a venue for this event. Availability is based on your selected dates and sessions.
+                    </p>
+                  </div>
+                  {venueAvailability.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      {isCheckingAvailability && (
+                        <span className="h-3 w-3 border-2 border-gray-300 border-t-[#1B4D3E] rounded-full animate-spin" />
+                      )}
+                      <Badge variant="outline" className="text-xs bg-gray-50">
+                        {venueAvailabilitySummary.available} of {venueAvailabilitySummary.total} available
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+
+                {/* Search bar */}
+                {venueAvailability.length > 3 && (
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Input
+                      type="text"
+                      placeholder="Search venues by name or location..."
+                      value={venueSearchQuery}
+                      onChange={(e) => setVenueSearchQuery(e.target.value)}
+                      className="pl-9 h-9 text-sm"
+                    />
+                  </div>
+                )}
+
+                {/* Loading state */}
+                {isCheckingAvailability && venueAvailability.length === 0 && (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="flex items-center gap-2 text-gray-500">
+                      <span className="h-4 w-4 border-2 border-gray-300 border-t-[#1B4D3E] rounded-full animate-spin" />
+                      <span className="text-sm">Checking venue availability...</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* No date selected state */}
+                {!createEventRange?.from && (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <Building2 className="w-10 h-10 text-gray-300 mb-2" />
+                    <p className="text-sm text-gray-500">Select a date to see available venues</p>
+                  </div>
+                )}
+
+                {/* Venue grid */}
+                {createEventRange?.from && filteredVenues.length > 0 && (
+                  <TooltipProvider>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {filteredVenues.map((venue) => (
+                        <VenueCard
+                          key={venue.facilityId}
+                          facilityId={venue.facilityId}
+                          name={venue.facilityName}
+                          location={venue.facilityLocation}
+                          imageUrl={venue.facilityImageUrl}
+                          capacity={venue.facilityCapacity}
+                          status={venue.status}
+                          conflicts={venue.conflicts}
+                          isSelected={selectedFacilityId === venue.facilityId}
+                          onSelect={() => setSelectedFacilityId(venue.facilityId)}
+                          disabled={isCreatingEvent}
+                        />
+                      ))}
+                    </div>
+                  </TooltipProvider>
+                )}
+
+                {/* No venues match search */}
+                {createEventRange?.from && filteredVenues.length === 0 && venueAvailability.length > 0 && (
+                  <div className="flex flex-col items-center justify-center py-6 text-center">
+                    <Search className="w-8 h-8 text-gray-300 mb-2" />
+                    <p className="text-sm text-gray-500">No venues match your search</p>
+                    <button
+                      type="button"
+                      onClick={() => setVenueSearchQuery("")}
+                      className="text-xs text-[#1B4D3E] hover:underline mt-1"
+                    >
+                      Clear search
+                    </button>
+                  </div>
+                )}
+
+                {/* Selected venue indicator */}
+                {selectedFacilityId && (
+                  <div className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+                    <MapPin className="w-4 h-4 text-emerald-600" />
+                    <span className="text-sm text-emerald-800">
+                      <span className="font-medium">Selected:</span>{" "}
+                      {venueAvailability.find((v) => v.facilityId === selectedFacilityId)?.facilityName ?? "Unknown venue"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedFacilityId("")}
+                      className="ml-auto text-emerald-600 hover:text-emerald-800"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-4 mt-2 border-t border-gray-100">

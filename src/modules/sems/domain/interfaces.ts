@@ -63,6 +63,14 @@ export interface IEventRepository {
    * @returns True if facility exists and is operational
    */
   facilityExists(facilityId: string): Promise<boolean>;
+
+  /**
+   * Delete multiple events by their IDs.
+   *
+   * @param ids - Array of event UUIDs
+   * @returns Number of rows deleted
+   */
+  deleteManyByIds(ids: string[]): Promise<number>;
 }
 
 // ============================================================================
@@ -109,4 +117,12 @@ export interface IEventService {
    * Frontend can use this for pre-submit validation.
    */
   validateCreateEvent(dto: unknown): ValidationResult<CreateEventDto>;
+
+  /**
+   * Delete one or more events by ID.
+   *
+   * @param ids - Array of event UUIDs to delete
+   * @returns Number of events deleted
+   */
+  deleteEvents(ids: string[]): Promise<number>;
 }

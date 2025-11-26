@@ -19,12 +19,21 @@ import {
   Bell,
   Building2,
   LogOut,
+  User,
+  UsersRound,
 } from "lucide-react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import appSettings from "@/appsettings.json";
 import PageTransition from "@/components/page-transition";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/shared/hooks/useAuth";
 
 type PhaseId = "phase1" | "phase2" | "phase3" | "phase4" | "phase5";
@@ -205,43 +214,77 @@ export default function DashboardShell({ children, mobileTitle, mobileDescriptio
         </div>
 
         <div className="px-3 pb-4">
-          <div
-            className={`rounded-2xl bg-white border border-gray-200 shadow-sm flex items-center transition-all duration-300 ease-in-out ${
-              isCollapsed ? "justify-center px-2 py-2" : "px-3 py-3 gap-3"
-            }`}
-          >
-            <Avatar className="h-9 w-9 border border-gray-200">
-              <AvatarImage
-                src={user && "avatarUrl" in user ? (user as any).avatarUrl ?? undefined : undefined}
-                alt={user?.fullName ?? "User"}
-              />
-              <AvatarFallback>
-                {user?.fullName ? user.fullName.charAt(0).toUpperCase() : "?"}
-              </AvatarFallback>
-            </Avatar>
-            {!isCollapsed && (
-              <div className="min-w-0 flex items-center justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-gray-900 truncate">
-                    {user?.fullName ?? "User"}
-                  </p>
-                  <p className="text-[11px] text-gray-500 truncate">
-                    {user?.email ?? "signed in"}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    void logout();
-                  }}
-                  className="shrink-0 inline-flex items-center justify-center h-7 w-7 rounded-full bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 hover:text-red-700 hover:border-red-200 transition-colors"
-                  aria-label="Sign out"
-                >
-                  <LogOut className="w-3 h-3" />
-                </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={`w-full rounded-2xl bg-white border border-gray-200 shadow-sm flex items-center transition-all duration-300 ease-in-out hover:border-[#1B4D3E]/30 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 ${
+                  isCollapsed ? "justify-center px-2 py-2" : "px-3 py-3 gap-3"
+                }`}
+              >
+                <Avatar className="h-9 w-9 border border-gray-200">
+                  <AvatarImage
+                    src={user && "avatarUrl" in user ? (user as any).avatarUrl ?? undefined : undefined}
+                    alt={user?.fullName ?? "User"}
+                  />
+                  <AvatarFallback className="bg-[#1B4D3E] text-white text-sm font-semibold">
+                    {user?.fullName ? user.fullName.charAt(0).toUpperCase() : "?"}
+                  </AvatarFallback>
+                </Avatar>
+                {!isCollapsed && (
+                  <div className="min-w-0 flex-1 text-left">
+                    <p className="text-xs font-semibold text-gray-900 truncate">
+                      {user?.fullName ?? "User"}
+                    </p>
+                    <p className="text-[11px] text-gray-500 truncate">
+                      {user?.email ?? "signed in"}
+                    </p>
+                  </div>
+                )}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              side="top"
+              className="w-56 rounded-xl border border-gray-200 bg-white shadow-lg"
+              sideOffset={8}
+            >
+              <div className="px-3 py-2 border-b border-gray-100">
+                <p className="text-sm font-semibold text-gray-900 truncate">
+                  {user?.fullName ?? "User"}
+                </p>
+                <p className="text-xs text-gray-500 truncate">
+                  {user?.email ?? "signed in"}
+                </p>
               </div>
-            )}
-          </div>
+              <div className="p-1">
+                <DropdownMenuItem
+                  onClick={() => router.push("/profile")}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-gray-700 hover:bg-[#1B4D3E]/5 hover:text-[#1B4D3E] focus:bg-[#1B4D3E]/5 focus:text-[#1B4D3E]"
+                >
+                  <User className="w-4 h-4" />
+                  <span className="text-sm font-medium">Profile</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => router.push("/users")}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-gray-700 hover:bg-[#1B4D3E]/5 hover:text-[#1B4D3E] focus:bg-[#1B4D3E]/5 focus:text-[#1B4D3E]"
+                >
+                  <UsersRound className="w-4 h-4" />
+                  <span className="text-sm font-medium">Manage Users</span>
+                </DropdownMenuItem>
+              </div>
+              <DropdownMenuSeparator className="bg-gray-100" />
+              <div className="p-1">
+                <DropdownMenuItem
+                  onClick={() => void logout()}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-red-600 hover:bg-red-50 hover:text-red-700 focus:bg-red-50 focus:text-red-700"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="text-sm font-medium">Logout</span>
+                </DropdownMenuItem>
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {!isCollapsed && (

@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useEffect, useState } from "react";
-import { Users, X } from "lucide-react";
+import { Users, X, FileSpreadsheet, FileText, Download, ChevronDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -87,6 +87,62 @@ export default function RegistryPage() {
   const [addStudentStatus, setAddStudentStatus] = useState<StudentStatus>("Active");
   const [editStudentSectionName, setEditStudentSectionName] = useState<string>("");
   const [editStudentStatus, setEditStudentStatus] = useState<StudentStatus>("Active");
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  async function handleExportQrCodes(format: "excel" | "word") {
+    if (isExporting) return;
+
+    setIsExporting(true);
+    setIsExportMenuOpen(false);
+
+    try {
+      // Build query params based on current filters
+      const params = new URLSearchParams();
+      params.set("format", format);
+
+      // If filtering by level, find the level ID
+      if (levelFilter !== "all") {
+        const level = levels.find((l) => l.name === levelFilter);
+        if (level) {
+          params.set("levelId", level.id);
+        }
+      }
+
+      // If filtering by section, find the section ID
+      if (sectionFilter !== "all") {
+        const section = sections.find((s) => s.name === sectionFilter);
+        if (section) {
+          params.set("sectionId", section.id);
+        }
+      }
+
+      const response = await fetch(`/api/sis/students/export?${params.toString()}`);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error?.message || "Export failed");
+      }
+
+      // Get the blob and trigger download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = format === "excel" 
+        ? `student_qr_codes_${Date.now()}.xlsx` 
+        : `student_qr_cards_${Date.now()}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Export error:", error);
+      alert(error instanceof Error ? error.message : "Failed to export QR codes");
+    } finally {
+      setIsExporting(false);
+    }
+  }
 
   async function handleBulkImportSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -889,6 +945,57 @@ export default function RegistryPage() {
           >
             Bulk Import
           </Button>
+          
+          {/* Export QR Codes Dropdown */}
+          <div className="relative">
+            <Button
+              type="button"
+              className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-sm px-4 py-2 rounded-lg shadow-sm inline-flex items-center gap-1.5"
+              onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+              disabled={isExporting || students.length === 0}
+            >
+              <Download className="w-4 h-4" />
+              {isExporting ? "Exporting..." : "Export QR"}
+              <ChevronDown className="w-3.5 h-3.5" />
+            </Button>
+            
+            {isExportMenuOpen && (
+              <>
+                {/* Backdrop to close menu */}
+                <div 
+                  className="fixed inset-0 z-10" 
+                  onClick={() => setIsExportMenuOpen(false)} 
+                />
+                
+                {/* Dropdown menu */}
+                <div className="absolute right-0 mt-1 w-52 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                  <button
+                    type="button"
+                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
+                    onClick={() => void handleExportQrCodes("excel")}
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-green-600" />
+                    <div>
+                      <div className="font-medium">Excel (.xlsx)</div>
+                      <div className="text-xs text-gray-500">Spreadsheet with QR images</div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
+                    onClick={() => void handleExportQrCodes("word")}
+                  >
+                    <FileText className="w-4 h-4 text-blue-600" />
+                    <div>
+                      <div className="font-medium">Word (.docx)</div>
+                      <div className="text-xs text-gray-500">Printable ID cards</div>
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          
           <Button
             type="button"
             className="hidden sm:inline-flex bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-sm px-4 py-2 rounded-lg shadow-sm"

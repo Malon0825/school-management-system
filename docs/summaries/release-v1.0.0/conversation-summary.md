@@ -104,3 +104,59 @@
   - Implement `/api/auth/login`, `/api/auth/logout`, `/api/auth/session` according to `AUTH_LOGIN_SYSTEM.md`.
   - Add `middleware.ts` + `routeAccess` config for role-based route protection.
   - Start with a vertical slice (e.g. SEMS event creation + scanner sync) using the new `modules/` structure.
+
+## 6. Sidebar User Menu & Manage Users UI (This Chat)
+
+- **Sidebar profile dropdown**
+  - Replaced static logout button in `DashboardShell` with a shadcn `DropdownMenu` attached to the profile card.
+  - Options: **Profile** (`/profile`), **Manage Users** (`/users`), **Logout** (calls `logout()`), with styling aligned to the app theme (`#1B4D3E`, soft neutrals).
+  - Avatar shows user initial, name, and email; responsive behavior for collapsed sidebar.
+
+- **Manage Users page (`/users`)** 
+  - New route: `src/app/(dashboard)/users/page.tsx` using shadcn components (`Dialog`, `DropdownMenu`, `Select`, `Switch`, `Table`, `Badge`, `Avatar`).
+  - Displays user list (mock data for now) with search, role filter, status filter and role-colored badges.
+  - Row actions via dropdown:
+    - **Reset Password** – dialog to send reset link.
+    - **Update Role** – dialog showing current role and selecting a new one.
+    - **Disable/Enable User** – dialog to toggle `isActive` with warning copy for disabling.
+  - Uses `useAuth` helpers for `isSuperAdmin` / `isAdmin` to restrict who can manage which users.
+
+- **User schema refactor: `app_users` vs `profiles`/`sis_users`**
+  - Clarified roles of tables:
+    - `auth.users` – Supabase auth identities.
+    - `profiles` – legacy lightweight identity/audit table.
+    - `sis_users` – previously intended as canonical app user table, but confusingly named.
+  - Designed and implemented **Phase 1.2** migration to merge `profiles` + `sis_users` into a single canonical table **`app_users`** that:
+    - Extends `auth.users` (PK = `auth.users.id`).
+    - Stores `email`, `full_name`, `roles[]`, `primary_role`, `is_active`, `school_id`, audit columns.
+    - Becomes the FK target for `created_by` / `updated_by` / `synced_by_user_id` across domain tables.
+  - Migration steps include:
+    - Creating `app_users` table and indexes.
+    - Migrating data from `sis_users` and `profiles` when present.
+    - Rewiring FKs on `facilities`, `events`, `students`, `sections`, `levels`, `event_sessions`, `attendance_logs` to point to `app_users`.
+    - Enabling RLS on `app_users` with a read-only policy for authenticated users.
+
+- **Auth routes refactor to `app_users`**
+  - `/api/auth/login` now:
+    - Authenticates via Supabase Auth (`signInWithPassword`).
+    - Looks up the canonical user in `app_users` **by `authResult.user.id`**, not by email.
+    - Maps `app_users` row to `AuthUser` (id, email, fullName, `roles[]`, `primaryRole`, `schoolId`, `isActive`).
+    - Sets HTTP-only cookies: `auth-token`, `user-id`, `user-roles`, optional `school-id`.
+  - `/api/auth/session` now:
+    - Validates the token via admin Supabase client.
+    - Loads the same `app_users` row by id and returns an `AuthUser` snapshot.
+
+- **RLS recursion bug & fix**
+  - Initial RLS policy attempted to gate writes on `app_users` using a subquery against `app_users` itself:
+    - Caused `42P17: infinite recursion detected in policy for relation "app_users"`.
+    - Surfaced as `ACCOUNT_NOT_FOUND` during login even when the row existed.
+  - Fix:
+    - Dropped the recursive "Admins can manage app_users" policy in the database.
+    - Updated `Phase_1.2_Merge_Users_Tables.sql` to **omit** that policy and keep only:
+      - `ENABLE ROW LEVEL SECURITY` on `app_users`.
+      - A safe SELECT policy: `Authenticated users can view app_users`.
+
+- **Current status after this chat**
+  - `app_users` is the single canonical app user table, wired to auth and domain FKs.
+  - Login and session APIs use `app_users` by Supabase user id and work with RLS enabled.
+  - Sidebar user menu and `/users` page UI are implemented and styled; `/users` currently uses mock data and is ready to be wired to `app_users`-backed APIs.

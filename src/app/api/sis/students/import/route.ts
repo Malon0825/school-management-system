@@ -90,10 +90,13 @@ interface StudentRow {
   created_at: string;
 }
 
-function generateQrHash(studentSchoolId: string): string {
-  const randomPart = Math.random().toString(36).slice(2, 10);
-  const timePart = Date.now().toString(36);
-  return `qr_${randomPart}_${timePart}_${studentSchoolId}`;
+function generateQrHash(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  const hex = Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return `qr_${hex}`;
 }
 
 function parseCsv(content: string): { rows: ParsedCsvRow[]; errors: CsvImportRowError[] } {
@@ -323,7 +326,7 @@ export async function POST(request: NextRequest) {
       section_id: section.id,
       guardian_phone: row.guardianPhone,
       guardian_email: row.guardianEmail,
-      qr_hash: generateQrHash(baseId),
+      qr_hash: generateQrHash(),
       is_active: true,
     };
   });

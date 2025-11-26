@@ -482,3 +482,55 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
     );
   }
 }
+
+/**
+ * DELETE /api/sems/events
+ *
+ * Bulk delete events by ID.
+ *
+ * Request body (JSON):
+ * { "ids": ["uuid1", "uuid2", ...] }
+ */
+export async function DELETE(request: NextRequest): Promise<NextResponse> {
+  // Authenticate
+  const authResult = await authenticateRequest(request);
+  if (authResult.error) {
+    return authResult.error;
+  }
+
+  // Parse request body
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return formatError(400, "INVALID_REQUEST", "Request body is required.");
+  }
+
+  const data = body as { ids?: unknown };
+  const ids = Array.isArray(data.ids) ? data.ids : [];
+
+  // Create service with repository dependency
+  const supabase = getAdminSupabaseClient();
+  const eventRepository = new EventRepository(supabase);
+  const eventService = new EventService(eventRepository);
+
+  try {
+    const deletedCount = await eventService.deleteEvents(ids as string[]);
+    return formatSuccess({ deletedCount });
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return formatError(
+        400,
+        "VALIDATION_ERROR",
+        error.message,
+        error.details
+      );
+    }
+
+    console.error("[DELETE /api/sems/events] Unexpected error:", error);
+    return formatError(
+      500,
+      "EVENT_DELETE_FAILED",
+      "Unable to delete events.",
+      error instanceof Error ? error.message : "Unknown error"
+    );
+  }
+}

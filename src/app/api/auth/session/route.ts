@@ -28,7 +28,7 @@ function formatError(status: number, code: string, message: string) {
   );
 }
 
-interface SisUserRow {
+interface AppUserRow {
   id: string;
   email: string;
   full_name: string | null;
@@ -68,35 +68,35 @@ export async function GET(request: NextRequest) {
 
   const userId = userResult.user.id;
 
-  const { data: sisUser, error: sisError } = await supabase
-    .from("sis_users")
+  const { data: appUser, error: appUserError } = await supabase
+    .from("app_users")
     .select("id, email, full_name, roles, primary_role, is_active, school_id")
     .eq("id", userId)
-    .single<SisUserRow>();
+    .single<AppUserRow>();
 
-  if (sisError || !sisUser) {
+  if (appUserError || !appUser) {
     return formatError(403, "ACCOUNT_NOT_FOUND", "Your account is not configured for this system.");
   }
 
-  if (!sisUser.is_active) {
+  if (!appUser.is_active) {
     return formatError(403, "ACCOUNT_INACTIVE", "Your account is inactive.");
   }
 
-  const roles = (Array.isArray(sisUser.roles) ? sisUser.roles : []).filter(Boolean) as UserRole[];
+  const roles = (Array.isArray(appUser.roles) ? appUser.roles : []).filter(Boolean) as UserRole[];
   if (!roles.length) {
     roles.push("STAFF");
   }
 
-  const primaryRole: UserRole = sisUser.primary_role ?? roles[0];
+  const primaryRole: UserRole = appUser.primary_role ?? roles[0];
 
   const authUser: AuthUser = {
-    id: sisUser.id,
-    email: sisUser.email,
-    fullName: sisUser.full_name ?? sisUser.email,
+    id: appUser.id,
+    email: appUser.email,
+    fullName: appUser.full_name ?? appUser.email,
     roles,
     primaryRole,
-    schoolId: sisUser.school_id,
-    isActive: Boolean(sisUser.is_active),
+    schoolId: appUser.school_id,
+    isActive: Boolean(appUser.is_active),
   };
 
   return NextResponse.json(formatSuccess({ user: authUser }));

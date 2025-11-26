@@ -94,6 +94,47 @@
 
 - Updated the page heading from `Events (SEMS)` to `Events Management` for a clearer product-facing label.
 
+## Session Configuration & Time Conflict Handling (v1.0.0)
+
+- **Per-day vs. uniform session schedules**
+  - Multi-day events now support two modes for session schedules:
+    - **Uniform schedule for all days**: Enabled via the "Use the same session schedule for every day in this date range" checkbox.
+    - **Per-day schedules**: When unchecked, each date in the selected range can have its own enabled periods and session times.
+  - When opening an existing event for editing, the checkbox state is **derived from the saved session configuration**:
+    - If all dates share the same sessions (same periods, directions, and times), the checkbox is checked.
+    - If any date differs, the checkbox is unchecked and per-day editing is enabled.
+
+- **Session editor UX**
+  - For each date, users can toggle **Morning**, **Afternoon**, and **Evening** periods and configure:
+    - **Opens** (first accepted scan time),
+    - **Late After** (late threshold, for entry sessions only),
+    - **Closes** (last accepted scan time).
+  - The session list shows the enabled sessions only, with clear labels for **Entry** vs **Exit**.
+
+- **Operational venue filtering**
+  - The Venue select now only lists facilities with `status === "operational"` while still using the existing `/api/facilities` endpoint.
+  - This keeps the UI in sync with backend validation (which already enforces operational status) and avoids selecting inactive venues.
+
+- **Real-time session time conflict detection**
+  - Session times are validated on the client as the user edits them. The system detects:
+    - **Internal session issues**:
+      - `Opens` is **not before** `Closes`.
+      - `Late After` is **before** `Opens` or **after** `Closes` (warning only).
+    - **Cross-session overlaps** within the same date:
+      - e.g., *Morning Out* closes at `13:00` while *Afternoon In* opens at `12:30`.
+  - Detected issues surface in two ways:
+    - A **banner** above the session list summarizing that there are time conflicts or warnings.
+    - **Inline badges** and messages under the affected sessions, with an icon and human-readable explanation.
+
+- **Blocking submit + toast feedback**
+  - On form submit (create or update):
+    - All dates in the session configuration are checked for **error-level** conflicts (e.g., overlapping sessions, `Closes` before `Opens`).
+    - If any error exists, the request is **not sent** to the backend.
+    - A **Sonner toast** is shown:
+      - Title: `"Session time conflict"`.
+      - Description: the first conflicting date and message, e.g. `"Nov 7, 2025: \"Morning Out\" closes at 13:00, but \"Afternoon In\" opens at 12:30. Sessions overlap."`.
+  - Warning-level issues (like late thresholds slightly outside the opens/closes window) still display inline but **do not** block form submission, allowing intentional edge cases.
+
 ## Notes / Follow-ups
 
 - Morning / Afternoon / Evening semantics:
@@ -101,5 +142,5 @@
   - If needed, a follow-up can add quick presets or multiple sessions per selected date range.
 
 - All changes are front-end only:
-  - The Create Event form still short-circuits on submit and doesnt yet call a backend API.
+  - The Create Event form still short-circuits on submit and doesn’t yet call a backend API.
   - Hidden fields ensure that, when wiring to Supabase or another backend, date and time values are already normalized (ISO date + `HH:mm`).

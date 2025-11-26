@@ -77,3 +77,9 @@ alter table attendance_logs
   add column if not exists created_by uuid references profiles(id),
   add column if not exists updated_by uuid references profiles(id),
   add column if not exists updated_at timestamp with time zone;
+
+
+CREATE POLICY "Staff can view events" ON events FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Staff can insert events" ON events FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Staff can update events" ON events FOR UPDATE USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Staff can delete events" ON events FOR DELETE USING (auth.role() = 'authenticated');

@@ -298,6 +298,101 @@ export interface EventListResponseDto {
 }
 
 // ============================================================================
+// Venue Availability Types
+// ============================================================================
+
+/**
+ * Request DTO for checking venue availability.
+ *
+ * @remarks
+ * Frontend Integration:
+ * - Send this after user selects dates and configures sessions
+ * - `excludeEventId` should be set when editing an existing event
+ *   to avoid self-conflict detection
+ */
+export interface VenueAvailabilityRequest {
+  /** Start date of the proposed event (YYYY-MM-DD) */
+  startDate: string;
+  /** End date of the proposed event (YYYY-MM-DD) */
+  endDate: string;
+  /** Session configuration for the proposed event */
+  sessions: DateSessionConfig[];
+  /** Event ID to exclude from conflict check (for edit mode) */
+  excludeEventId?: string;
+}
+
+/**
+ * Represents a time slot conflict with an existing event.
+ *
+ * @remarks
+ * Frontend can use this to show detailed conflict information,
+ * helping users understand why a venue is unavailable.
+ */
+export interface SessionConflict {
+  /** The date of the conflict (YYYY-MM-DD) */
+  date: string;
+  /** The conflicting session period (morning, afternoon, evening) */
+  period: SessionPeriod;
+  /** Time range of the conflict (e.g., "08:00 - 12:00") */
+  timeRange: string;
+  /** Title of the event causing the conflict */
+  conflictingEventTitle: string;
+  /** ID of the event causing the conflict */
+  conflictingEventId: string;
+}
+
+/**
+ * Availability status for a single venue.
+ */
+export type VenueAvailabilityStatus = "available" | "partial" | "unavailable";
+
+/**
+ * Result of venue availability check for a single facility.
+ *
+ * @remarks
+ * Frontend Integration:
+ * - `available`: Show with green indicator, fully selectable
+ * - `partial`: Show with yellow indicator, some sessions have conflicts
+ * - `unavailable`: Show with red indicator or hide, all sessions conflict
+ */
+export interface VenueAvailabilityResult {
+  /** Facility ID */
+  facilityId: string;
+  /** Facility name for display */
+  facilityName: string;
+  /** Facility location for display */
+  facilityLocation: string;
+  /** Facility image URL for grid display */
+  facilityImageUrl: string | null;
+  /** Facility capacity */
+  facilityCapacity: number | null;
+  /** Overall availability status */
+  status: VenueAvailabilityStatus;
+  /** List of session conflicts (empty if fully available) */
+  conflicts: SessionConflict[];
+  /**
+   * Availability breakdown by date and period.
+   * Key format: "YYYY-MM-DD:period" (e.g., "2025-11-27:morning")
+   */
+  availabilityMap: Record<string, boolean>;
+}
+
+/**
+ * Response DTO for venue availability check.
+ */
+export interface VenueAvailabilityResponseDto {
+  /** List of venues with their availability status */
+  venues: VenueAvailabilityResult[];
+  /** Summary counts */
+  summary: {
+    total: number;
+    available: number;
+    partial: number;
+    unavailable: number;
+  };
+}
+
+// ============================================================================
 // Validation Types
 // ============================================================================
 

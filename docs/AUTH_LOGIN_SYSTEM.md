@@ -14,7 +14,7 @@
 - **High-level flow**
   - User visits `/login` and submits email/password.
   - Client calls `/api/auth/login`.
-  - API route validates credentials with Supabase Auth and loads profile from `sis_users` table.
+  - API route validates credentials with Supabase Auth and loads profile from `app_users` table.
   - API sets **HTTP-only cookies** carrying auth token and role information.
   - Client optionally initializes Supabase session; `AuthContext` holds the current user snapshot.
   - Middleware uses cookies to protect routes and apply role-based redirects.
@@ -53,7 +53,7 @@ All roles are represented by **role arrays** rather than a single role string.
 
 - Creates a **server-side admin client** with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
 - Responsibilities:
-  - Bypass RLS for controlled internal queries (e.g. lookup in `sis_users` on login).
+  - Bypass RLS for controlled internal queries (e.g. lookup in `app_users` on login).
   - Validate access tokens and load canonical user record.
 
 - Usage:
@@ -210,7 +210,7 @@ Location: `src/core/auth/SessionService.ts`
 - Endpoint: `POST /api/auth/login`.
 - Responsibilities:
   1. Validate request body (`email`, `password`).
-  2. Look up user in **SIS users table** (e.g. `sis_users`) using admin Supabase client:
+  2. Look up user in **app_users table** using admin Supabase client:
      - Select `id, email, full_name, roles, is_active, school_id, primary_role`.
   3. Ensure `is_active === true` and account is not locked/suspended.
   4. Verify credentials via Supabase Auth `signInWithPassword` using service role client.
@@ -252,7 +252,7 @@ Location: `src/core/auth/SessionService.ts`
 - Behavior:
   - Extracts `Authorization: Bearer <token>` or `auth-token` cookie.
   - Validates token via `supabaseAdmin.auth.getUser(token)`.
-  - Loads canonical user from `sis_users` table.
+  - Loads canonical user from `app_users` table.
   - Returns `AuthUser` on success, `401`/`403` on failure.
 
 ---

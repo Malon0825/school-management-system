@@ -187,29 +187,24 @@ export async function POST(request: NextRequest) {
   }
 
   const userId = userResult.user.id;
-  const userEmail = userResult.user.email ?? "";
 
-  const { data: profileRow, error: profileError } = await supabase
-    .from("profiles")
-    .upsert(
-      {
-        id: userId,
-        full_name: userEmail || "Unknown User",
-      },
-      { onConflict: "id" }
-    )
+  // Verify the user exists in app_users (should already exist from login)
+  const { data: appUserRow, error: appUserError } = await supabase
+    .from("app_users")
     .select("id")
+    .eq("id", userId)
     .single<{ id: string }>();
 
-  if (profileError || !profileRow) {
-    console.error("[/api/facilities] Failed to ensure creator profile", {
-      profileError,
+  if (appUserError || !appUserRow) {
+    console.error("[/api/facilities] User not found in app_users", {
+      userId,
+      appUserError,
     });
     return formatError(
-      500,
-      "PROFILE_SYNC_FAILED",
-      "Unable to resolve creator profile for facility.",
-      profileError?.message ?? profileError
+      403,
+      "USER_NOT_FOUND",
+      "Your account is not configured for this system.",
+      appUserError?.message ?? appUserError
     );
   }
 
@@ -227,7 +222,7 @@ export async function POST(request: NextRequest) {
     image_url: value.imageUrl || null,
     capacity: value.capacity,
     status: value.status,
-    created_by: profileRow.id,
+    created_by: appUserRow.id,
   };
 
   const { data, error } = await supabase

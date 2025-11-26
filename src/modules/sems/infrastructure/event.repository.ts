@@ -501,6 +501,122 @@ export class EventRepository implements IEventRepository {
   }
 
   /**
+   * Find events that use specific facilities within a date range.
+   *
+   * @param startDate - Start of date range (YYYY-MM-DD)
+   * @param endDate - End of date range (YYYY-MM-DD)
+   * @param excludeEventId - Optional event ID to exclude (for edit mode)
+   * @returns Array of events with their facility and session config
+   *
+   * @remarks
+   * Used for venue availability checking. Returns events where:
+   * - facility_id is not null
+   * - date range overlaps with the requested range
+   * - optionally excludes a specific event (when editing)
+   */
+  async findEventsInDateRange(
+    startDate: string,
+    endDate: string,
+    excludeEventId?: string
+  ): Promise<
+    Array<{
+      id: string;
+      title: string;
+      facilityId: string;
+      startDate: string;
+      endDate: string;
+      sessionConfig: EventSessionConfig;
+    }>
+  > {
+    // Query events that:
+    // 1. Have a facility assigned
+    // 2. Overlap with the requested date range
+    let query = this.supabase
+      .from("events")
+      .select(
+        `
+        id,
+        title,
+        facility_id,
+        start_date,
+        end_date,
+        event_date,
+        session_config
+      `
+      )
+      .not("facility_id", "is", null)
+      // Date range overlap: event.start <= request.end AND event.end >= request.start
+      .or(`start_date.lte.${endDate},event_date.lte.${endDate}`)
+      .or(`end_date.gte.${startDate},start_date.gte.${startDate},event_date.gte.${startDate}`);
+
+    // Exclude specific event if provided (for edit mode)
+    if (excludeEventId) {
+      query = query.neq("id", excludeEventId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("[EventRepository.findEventsInDateRange] Database error:", error);
+      throw new Error(`Failed to find events: ${error.message}`);
+    }
+
+    // Map to cleaner format and filter to only those with actual date overlap
+    return (data ?? [])
+      .filter((row) => {
+        // Calculate effective dates
+        const eventStart = row.start_date ?? row.event_date;
+        const eventEnd = row.end_date ?? row.start_date ?? row.event_date;
+        if (!eventStart || !eventEnd) return false;
+
+        // Check actual date overlap
+        return eventStart <= endDate && eventEnd >= startDate;
+      })
+      .map((row) => ({
+        id: row.id,
+        title: row.title,
+        facilityId: row.facility_id as string,
+        startDate: row.start_date ?? row.event_date ?? "",
+        endDate: row.end_date ?? row.start_date ?? row.event_date ?? "",
+        sessionConfig: row.session_config as EventSessionConfig,
+      }));
+  }
+
+  /**
+   * Get all operational facilities with their details.
+   *
+   * @returns Array of operational facilities
+   */
+  async getOperationalFacilities(): Promise<
+    Array<{
+      id: string;
+      name: string;
+      location: string;
+      imageUrl: string | null;
+      capacity: number | null;
+    }>
+  > {
+    const { data, error } = await this.supabase
+      .from("facilities")
+      .select("id, name, location_identifier, image_url, capacity")
+      .eq("status", "operational")
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error("[EventRepository.getOperationalFacilities] Database error:", error);
+      throw new Error(`Failed to fetch facilities: ${error.message}`);
+    }
+
+    return (data ?? []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      location: row.location_identifier,
+      imageUrl: row.image_url,
+      capacity: row.capacity,
+    }));
+  }
+
+  /**
    * Count actual attendees for an event from attendance_logs.
    *
    * @param eventId - UUID of the event
@@ -538,6 +654,28 @@ export class EventRepository implements IEventRepository {
     if (error) {
       console.error("[EventRepository.countEventAttendees] Count error:", error);
       return 0;
+    }
+
+    return count ?? 0;
+  }
+
+  /**
+   * Delete multiple events by their IDs.
+   *
+   * @param ids - Array of event UUIDs to delete
+   * @returns The number of rows deleted
+   */
+  async deleteManyByIds(ids: string[]): Promise<number> {
+    if (!ids || ids.length === 0) return 0;
+
+    const { error, count } = await this.supabase
+      .from("events")
+      .delete({ count: "exact" })
+      .in("id", ids);
+
+    if (error) {
+      console.error("[EventRepository.deleteManyByIds] Database error:", error);
+      throw new Error(`Failed to delete events: ${error.message}`);
     }
 
     return count ?? 0;

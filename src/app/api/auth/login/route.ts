@@ -29,7 +29,7 @@ function formatError(status: number, code: string, message: string, details?: un
   );
 }
 
-interface SisUserRow {
+interface AppUserRow {
   id: string;
   email: string;
   full_name: string | null;
@@ -76,35 +76,47 @@ export async function POST(request: NextRequest) {
     return formatError(401, "INVALID_CREDENTIALS", "Invalid email or password.");
   }
 
-  const { data: sisUser, error: sisError } = await supabase
-    .from("sis_users")
-    .select("id, email, full_name, roles, primary_role, is_active, school_id")
-    .eq("email", email)
-    .single<SisUserRow>();
+  const userId = authResult.user.id;
 
-  if (sisError || !sisUser) {
-    return formatError(403, "ACCOUNT_NOT_FOUND", "Your account is not configured for this system. Contact the Super Admin.");
+  const { data: appUser, error: appUserError } = await supabase
+    .from("app_users")
+    .select("id, email, full_name, roles, primary_role, is_active, school_id")
+    .eq("id", userId)
+    .single<AppUserRow>();
+
+  if (appUserError || !appUser) {
+    console.error("[/api/auth/login] Failed to load app_users row", {
+      userId,
+      appUserError,
+      appUser,
+    });
+    return formatError(
+      403,
+      "ACCOUNT_NOT_FOUND",
+      "Your account is not configured for this system. Contact the Super Admin.",
+      appUserError ?? null,
+    );
   }
 
-  if (!sisUser.is_active) {
+  if (!appUser.is_active) {
     return formatError(403, "ACCOUNT_INACTIVE", "Your account is inactive. Contact the Super Admin.");
   }
 
-  const roles = (Array.isArray(sisUser.roles) ? sisUser.roles : []).filter(Boolean) as UserRole[];
+  const roles = (Array.isArray(appUser.roles) ? appUser.roles : []).filter(Boolean) as UserRole[];
   if (!roles.length) {
     roles.push("STAFF");
   }
 
-  const primaryRole: UserRole = sisUser.primary_role ?? roles[0];
+  const primaryRole: UserRole = appUser.primary_role ?? roles[0];
 
   const user: AuthUser = {
-    id: sisUser.id,
-    email: sisUser.email,
-    fullName: sisUser.full_name ?? sisUser.email,
+    id: appUser.id,
+    email: appUser.email,
+    fullName: appUser.full_name ?? appUser.email,
     roles,
     primaryRole,
-    schoolId: sisUser.school_id,
-    isActive: Boolean(sisUser.is_active),
+    schoolId: appUser.school_id,
+    isActive: Boolean(appUser.is_active),
   };
 
   const accessToken = authResult.session.access_token;
