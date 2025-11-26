@@ -18,6 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { toast } from "sonner";
 
 // ============================================================================
 // Audience Configuration Types
@@ -348,7 +349,6 @@ export default function EventsPage() {
 
   // Create event form state
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
-  const [createEventError, setCreateEventError] = useState<string | null>(null);
   const [createEventTitle, setCreateEventTitle] = useState("");
 
   // Events list state
@@ -486,7 +486,6 @@ export default function EventsPage() {
     setDateSessionConfigs(new Map());
     setSelectedConfigDate(null);
     setUseSameScheduleForAllDays(true);
-    setCreateEventError(null);
     setEditingEventId(null);
   }, []);
 
@@ -495,7 +494,6 @@ export default function EventsPage() {
    */
   const openEditDialog = useCallback(async (eventId: string) => {
     setIsLoadingEditEvent(true);
-    setCreateEventError(null);
     setEditingEventId(eventId);
     setIsCreateDialogOpen(true);
 
@@ -639,7 +637,7 @@ export default function EventsPage() {
 
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to load event.";
-      setCreateEventError(message);
+      toast.error(message);
       console.error("[EventsPage] Failed to load event for editing:", error);
     } finally {
       setIsLoadingEditEvent(false);
@@ -1153,7 +1151,6 @@ export default function EventsPage() {
    */
   const handleEventFormSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setCreateEventError(null);
     setIsCreatingEvent(true);
 
     try {
@@ -1214,7 +1211,7 @@ export default function EventsPage() {
 
     } catch (error) {
       const message = error instanceof Error ? error.message : (editingEventId ? "Unable to update event." : "Unable to create event.");
-      setCreateEventError(message);
+      toast.error(message);
       console.error(`[EventsPage] Failed to ${editingEventId ? "update" : "create"} event:`, error);
     } finally {
       setIsCreatingEvent(false);
@@ -1461,13 +1458,6 @@ export default function EventsPage() {
                     <span className="h-4 w-4 border-2 border-gray-300 border-t-[#1B4D3E] rounded-full animate-spin" />
                     Loading event data...
                   </div>
-                </div>
-              )}
-
-              {/* Error display */}
-              {createEventError && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-sm text-red-700">{createEventError}</p>
                 </div>
               )}
 
