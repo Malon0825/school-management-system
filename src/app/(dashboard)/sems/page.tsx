@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { Calendar as CalendarIcon, ShieldAlert, X, QrCode } from "lucide-react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { Calendar as CalendarIcon, ShieldAlert, X, QrCode, Users, ChevronDown, ChevronRight, Search, Minus, UserX, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { format } from "date-fns";
+import { format, eachDayOfInterval, isSameDay } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,6 +14,124 @@ import { TimePicker } from "@/components/ui/time-picker";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+// ============================================================================
+// Audience Configuration Types
+// ============================================================================
+
+type AudienceRuleKind = "ALL_STUDENTS" | "LEVEL" | "SECTION" | "STUDENT";
+type AudienceRuleEffect = "include" | "exclude";
+
+interface AudienceRuleBase {
+  kind: AudienceRuleKind;
+  effect: AudienceRuleEffect;
+}
+
+interface AllStudentsRule extends AudienceRuleBase {
+  kind: "ALL_STUDENTS";
+}
+
+interface LevelRule extends AudienceRuleBase {
+  kind: "LEVEL";
+  levelIds: string[];
+}
+
+interface SectionRule extends AudienceRuleBase {
+  kind: "SECTION";
+  sectionIds: string[];
+}
+
+interface StudentRule extends AudienceRuleBase {
+  kind: "STUDENT";
+  studentIds: string[];
+}
+
+type AudienceRule = AllStudentsRule | LevelRule | SectionRule | StudentRule;
+
+interface EventAudienceConfig {
+  version: 1;
+  rules: AudienceRule[];
+}
+
+type AudienceMode = "all" | "level_section" | "students" | "mixed";
+
+// ============================================================================
+// Data Types
+// ============================================================================
+
+interface LevelDto {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
+interface SectionDto {
+  id: string;
+  name: string;
+  levelId: string | null;
+  isActive: boolean;
+}
+
+interface StudentDto {
+  id: string;
+  name: string;
+  grade: string;
+  section: string;
+  lrn: string;
+  status: "Active" | "Inactive";
+}
+
+/**
+ * Event list item from API for display in the events table.
+ */
+interface EventListItem {
+  id: string;
+  title: string;
+  timeRange: string;
+  venue: string | null;
+  audienceSummary: string;
+  actualAttendees: number;
+  expectedAttendees: number;
+  status: "live" | "scheduled" | "completed";
+  startDate: string;
+  endDate: string;
+}
+
+/**
+ * Full event data for editing, returned from GET /api/sems/events/:id
+ */
+interface EventEditData {
+  id: string;
+  title: string;
+  description: string | null;
+  startDate: string;
+  endDate: string;
+  facility: {
+    id: string;
+    name: string;
+    location: string;
+  } | null;
+  audienceConfig: EventAudienceConfig;
+  sessionConfig: {
+    version: 2;
+    dates: Array<{
+      date: string;
+      sessions: Array<{
+        id: string;
+        name: string;
+        period: SessionPeriod;
+        direction: SessionDirection;
+        opens: string;
+        lateAfter: string | null;
+        closes: string;
+      }>;
+    }>;
+  };
+}
 
 const EVENTS_DATA = {
   overview: [
@@ -69,6 +187,119 @@ const EVENTS_DATA = {
   ],
 };
 
+interface Facility {
+  id: string;
+  name: string;
+  type: string;
+  location: string;
+  imageUrl: string | null;
+  capacity: number | null;
+  status: "operational" | "maintenance" | "out_of_service" | "retired";
+}
+
+type SessionPeriod = "morning" | "afternoon" | "evening";
+
+type SessionDirection = "in" | "out";
+
+interface AttendanceSessionConfig {
+  id: string;
+  period: SessionPeriod;
+  direction: SessionDirection;
+  name: string;
+  supportsLateAfter: boolean;
+  opens: string;
+  lateAfter: string;
+  closes: string;
+}
+
+const DEFAULT_SESSION_CONFIGS: AttendanceSessionConfig[] = [
+  {
+    id: "morning-in",
+    period: "morning",
+    direction: "in",
+    name: "Morning In",
+    supportsLateAfter: true,
+    opens: "",
+    lateAfter: "",
+    closes: "",
+  },
+  {
+    id: "morning-out",
+    period: "morning",
+    direction: "out",
+    name: "Morning Out",
+    supportsLateAfter: false,
+    opens: "",
+    lateAfter: "",
+    closes: "",
+  },
+  {
+    id: "afternoon-in",
+    period: "afternoon",
+    direction: "in",
+    name: "Afternoon In",
+    supportsLateAfter: true,
+    opens: "",
+    lateAfter: "",
+    closes: "",
+  },
+  {
+    id: "afternoon-out",
+    period: "afternoon",
+    direction: "out",
+    name: "Afternoon Out",
+    supportsLateAfter: false,
+    opens: "",
+    lateAfter: "",
+    closes: "",
+  },
+  {
+    id: "evening-in",
+    period: "evening",
+    direction: "in",
+    name: "Evening In",
+    supportsLateAfter: true,
+    opens: "",
+    lateAfter: "",
+    closes: "",
+  },
+  {
+    id: "evening-out",
+    period: "evening",
+    direction: "out",
+    name: "Evening Out",
+    supportsLateAfter: false,
+    opens: "",
+    lateAfter: "",
+    closes: "",
+  },
+];
+
+// Per-date session configuration
+interface DateSessionConfig {
+  date: string; // ISO date string YYYY-MM-DD
+  enabledPeriods: Set<SessionPeriod>;
+  sessions: AttendanceSessionConfig[];
+}
+
+function createDefaultDateConfig(dateStr: string): DateSessionConfig {
+  return {
+    date: dateStr,
+    enabledPeriods: new Set<SessionPeriod>(["morning", "afternoon"]),
+    sessions: DEFAULT_SESSION_CONFIGS.map((s) => ({ ...s })),
+  };
+}
+
+function shouldRedirectToLogin(response: Response): boolean {
+  if (response.status === 401) {
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
+    }
+    return true;
+  }
+  return false;
+}
+
 export default function EventsPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
@@ -76,10 +307,919 @@ export default function EventsPage() {
   const [venueFilter, setVenueFilter] = useState<string>("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createEventRange, setCreateEventRange] = useState<DateRange | undefined>(undefined);
-  const [openTime, setOpenTime] = useState("");
-  const [lateThresholdTime, setLateThresholdTime] = useState("");
-  const [closeTime, setCloseTime] = useState("");
-  const venueOptions = Array.from(new Set(EVENTS_DATA.todaysEvents.map((event) => event.venue)));
+  
+  // Per-date session configuration state
+  const [dateSessionConfigs, setDateSessionConfigs] = useState<Map<string, DateSessionConfig>>(new Map());
+  const [selectedConfigDate, setSelectedConfigDate] = useState<string | null>(null);
+  const [useSameScheduleForAllDays, setUseSameScheduleForAllDays] = useState(true);
+  
+  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [selectedFacilityId, setSelectedFacilityId] = useState("");
+  const [isLoadingFacilities, setIsLoadingFacilities] = useState(false);
+  const [facilitiesError, setFacilitiesError] = useState<string | null>(null);
+
+  const operationalFacilities = useMemo(
+    () => facilities.filter((facility) => facility.status === "operational"),
+    [facilities]
+  );
+
+  // Audience filter state
+  const [levels, setLevels] = useState<LevelDto[]>([]);
+  const [sections, setSections] = useState<SectionDto[]>([]);
+  const [isLoadingLevels, setIsLoadingLevels] = useState(false);
+  const [audienceMode, setAudienceMode] = useState<AudienceMode>("all");
+  const [selectedLevelIds, setSelectedLevelIds] = useState<Set<string>>(new Set());
+  const [selectedSectionIds, setSelectedSectionIds] = useState<Set<string>>(new Set());
+  const [expandedLevelIds, setExpandedLevelIds] = useState<Set<string>>(new Set());
+  
+  // Specific students state
+  const [allStudents, setAllStudents] = useState<StudentDto[]>([]);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
+  const [studentSearchQuery, setStudentSearchQuery] = useState("");
+  const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
+  const [excludeStudentSearch, setExcludeStudentSearch] = useState("");
+  const [excludeSectionSearch, setExcludeSectionSearch] = useState("");
+  
+  // Exclusion state
+  const [excludedLevelIds, setExcludedLevelIds] = useState<Set<string>>(new Set());
+  const [excludedSectionIds, setExcludedSectionIds] = useState<Set<string>>(new Set());
+  const [excludedStudentIds, setExcludedStudentIds] = useState<Set<string>>(new Set());
+  const [showExclusions, setShowExclusions] = useState(false);
+
+  // Create event form state
+  const [isCreatingEvent, setIsCreatingEvent] = useState(false);
+  const [createEventError, setCreateEventError] = useState<string | null>(null);
+  const [createEventTitle, setCreateEventTitle] = useState("");
+
+  // Events list state
+  const [eventsList, setEventsList] = useState<EventListItem[]>([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
+  const [eventsError, setEventsError] = useState<string | null>(null);
+
+  // Edit event state
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [isLoadingEditEvent, setIsLoadingEditEvent] = useState(false);
+
+  // Derived: whether we're in edit mode
+  const isEditMode = editingEventId !== null;
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadFacilities() {
+      setIsLoadingFacilities(true);
+      setFacilitiesError(null);
+
+      try {
+        const response = await fetch("/api/facilities", {
+          method: "GET",
+        });
+
+        if (shouldRedirectToLogin(response)) {
+          return;
+        }
+
+        const body = (await response.json().catch(() => null)) as
+          | { success?: boolean; data?: { facilities: Facility[] }; error?: { message?: string } }
+          | null;
+
+        if (!response.ok || !body) {
+          const message = body?.error?.message ?? "Unable to load facilities.";
+          throw new Error(message);
+        }
+
+        if (!body.success || !body.data) {
+          throw new Error("Unexpected response when loading facilities.");
+        }
+
+        if (!isCancelled) {
+          setFacilities(body.data.facilities);
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          const message =
+            error instanceof Error ? error.message : "Unable to load facilities.";
+          setFacilitiesError(message);
+          console.error("[EventsPage] Failed to load facilities", error);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingFacilities(false);
+        }
+      }
+    }
+
+    void loadFacilities();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  // Load events list
+  const loadEvents = useCallback(async () => {
+    setIsLoadingEvents(true);
+    setEventsError(null);
+
+    try {
+      // Build query params
+      const params = new URLSearchParams();
+      if (venueFilter && venueFilter !== "all") {
+        // Find facility ID by name
+        const facility = facilities.find((f) => f.name === venueFilter);
+        if (facility) {
+          params.set("facilityId", facility.id);
+        }
+      }
+      if (searchTerm.trim()) {
+        params.set("search", searchTerm.trim());
+      }
+
+      const url = `/api/sems/events${params.toString() ? `?${params.toString()}` : ""}`;
+      const response = await fetch(url, { method: "GET" });
+
+      if (shouldRedirectToLogin(response)) return;
+
+      const body = (await response.json().catch(() => null)) as {
+        success?: boolean;
+        data?: { events: EventListItem[]; pagination: { total: number } };
+        error?: { message?: string };
+      } | null;
+
+      if (!response.ok || !body?.success || !body.data) {
+        throw new Error(body?.error?.message ?? "Unable to load events.");
+      }
+
+      setEventsList(body.data.events);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to load events.";
+      setEventsError(message);
+      console.error("[EventsPage] Failed to load events", error);
+    } finally {
+      setIsLoadingEvents(false);
+    }
+  }, [venueFilter, searchTerm, facilities]);
+
+  // Initial load and refresh on filter changes
+  useEffect(() => {
+    // Wait for facilities to load before filtering by venue
+    if (facilities.length > 0 || venueFilter === "all") {
+      void loadEvents();
+    }
+  }, [loadEvents, facilities.length, venueFilter]);
+
+  /**
+   * Reset form to initial state.
+   */
+  const resetForm = useCallback(() => {
+    setCreateEventTitle("");
+    setCreateEventRange(undefined);
+    setSelectedFacilityId("");
+    setAudienceMode("all");
+    setSelectedLevelIds(new Set());
+    setSelectedSectionIds(new Set());
+    setSelectedStudentIds(new Set());
+    setExcludedLevelIds(new Set());
+    setExcludedSectionIds(new Set());
+    setExcludedStudentIds(new Set());
+    setShowExclusions(false);
+    setDateSessionConfigs(new Map());
+    setSelectedConfigDate(null);
+    setUseSameScheduleForAllDays(true);
+    setCreateEventError(null);
+    setEditingEventId(null);
+  }, []);
+
+  /**
+   * Open edit dialog and load event data.
+   */
+  const openEditDialog = useCallback(async (eventId: string) => {
+    setIsLoadingEditEvent(true);
+    setCreateEventError(null);
+    setEditingEventId(eventId);
+    setIsCreateDialogOpen(true);
+
+    try {
+      // Fetch full event data
+      const response = await fetch(`/api/sems/events/${eventId}`, { method: "GET" });
+
+      if (shouldRedirectToLogin(response)) return;
+
+      const body = (await response.json().catch(() => null)) as {
+        success?: boolean;
+        data?: { event: EventEditData };
+        error?: { message?: string };
+      } | null;
+
+      if (!response.ok || !body?.success || !body.data) {
+        throw new Error(body?.error?.message ?? "Unable to load event.");
+      }
+
+      const event = body.data.event;
+
+      // Populate form with event data
+      setCreateEventTitle(event.title);
+      
+      // Set date range
+      if (event.startDate) {
+        const start = new Date(event.startDate);
+        const end = event.endDate ? new Date(event.endDate) : start;
+        setCreateEventRange({ from: start, to: end });
+      }
+
+      // Set facility
+      if (event.facility) {
+        setSelectedFacilityId(event.facility.id);
+      }
+
+      // Set audience mode and selections from audienceConfig
+      const audienceConfig = event.audienceConfig;
+      if (audienceConfig?.rules) {
+        const includeRules = audienceConfig.rules.filter((r) => r.effect === "include");
+        const excludeRules = audienceConfig.rules.filter((r) => r.effect === "exclude");
+
+        // Determine mode
+        if (includeRules.some((r) => r.kind === "ALL_STUDENTS")) {
+          setAudienceMode("all");
+        } else {
+          const hasLevels = includeRules.some((r) => r.kind === "LEVEL");
+          const hasSections = includeRules.some((r) => r.kind === "SECTION");
+          const hasStudents = includeRules.some((r) => r.kind === "STUDENT");
+          
+          if (hasStudents && (hasLevels || hasSections)) {
+            setAudienceMode("mixed");
+          } else if (hasStudents) {
+            setAudienceMode("students");
+          } else {
+            setAudienceMode("level_section");
+          }
+        }
+
+        // Set level selections
+        const levelIds = new Set<string>();
+        includeRules.filter((r) => r.kind === "LEVEL").forEach((r) => {
+          if ("levelIds" in r) r.levelIds.forEach((id) => levelIds.add(id));
+        });
+        setSelectedLevelIds(levelIds);
+
+        // Set section selections
+        const sectionIds = new Set<string>();
+        includeRules.filter((r) => r.kind === "SECTION").forEach((r) => {
+          if ("sectionIds" in r) r.sectionIds.forEach((id) => sectionIds.add(id));
+        });
+        setSelectedSectionIds(sectionIds);
+
+        // Set student selections
+        const studentIds = new Set<string>();
+        includeRules.filter((r) => r.kind === "STUDENT").forEach((r) => {
+          if ("studentIds" in r) r.studentIds.forEach((id) => studentIds.add(id));
+        });
+        setSelectedStudentIds(studentIds);
+
+        // Set exclusions
+        const exLevelIds = new Set<string>();
+        excludeRules.filter((r) => r.kind === "LEVEL").forEach((r) => {
+          if ("levelIds" in r) r.levelIds.forEach((id) => exLevelIds.add(id));
+        });
+        setExcludedLevelIds(exLevelIds);
+
+        const exSectionIds = new Set<string>();
+        excludeRules.filter((r) => r.kind === "SECTION").forEach((r) => {
+          if ("sectionIds" in r) r.sectionIds.forEach((id) => exSectionIds.add(id));
+        });
+        setExcludedSectionIds(exSectionIds);
+
+        const exStudentIds = new Set<string>();
+        excludeRules.filter((r) => r.kind === "STUDENT").forEach((r) => {
+          if ("studentIds" in r) r.studentIds.forEach((id) => exStudentIds.add(id));
+        });
+        setExcludedStudentIds(exStudentIds);
+
+        // Show exclusions panel if there are any
+        if (exLevelIds.size > 0 || exSectionIds.size > 0 || exStudentIds.size > 0) {
+          setShowExclusions(true);
+        }
+      }
+
+      // Set session config
+      if (event.sessionConfig?.dates) {
+        const configMap = new Map<string, DateSessionConfig>();
+        
+        for (const dateConfig of event.sessionConfig.dates) {
+          const enabledPeriods = new Set<SessionPeriod>();
+          const sessions = DEFAULT_SESSION_CONFIGS.map((defaultSession) => {
+            const existingSession = dateConfig.sessions.find((s) => s.id === defaultSession.id);
+            if (existingSession) {
+              enabledPeriods.add(existingSession.period);
+              return {
+                ...defaultSession,
+                opens: existingSession.opens,
+                lateAfter: existingSession.lateAfter ?? "",
+                closes: existingSession.closes,
+              };
+            }
+            return { ...defaultSession };
+          });
+
+          configMap.set(dateConfig.date, {
+            date: dateConfig.date,
+            enabledPeriods,
+            sessions,
+          });
+        }
+
+        setDateSessionConfigs(configMap);
+        
+        // Select first date for editing
+        const firstDate = event.sessionConfig.dates[0]?.date;
+        if (firstDate) {
+          setSelectedConfigDate(firstDate);
+        }
+      }
+
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to load event.";
+      setCreateEventError(message);
+      console.error("[EventsPage] Failed to load event for editing:", error);
+    } finally {
+      setIsLoadingEditEvent(false);
+    }
+  }, []);
+
+  // Load levels and sections for audience filter
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadLevelsAndSections() {
+      setIsLoadingLevels(true);
+
+      try {
+        const response = await fetch("/api/sis/levels", { method: "GET" });
+
+        if (shouldRedirectToLogin(response)) return;
+
+        const body = (await response.json().catch(() => null)) as
+          | { success?: boolean; data?: { levels: LevelDto[]; sections: SectionDto[] }; error?: { message?: string } }
+          | null;
+
+        if (!response.ok || !body?.success || !body.data) {
+          throw new Error(body?.error?.message ?? "Unable to load levels.");
+        }
+
+        if (!isCancelled) {
+          setLevels(body.data.levels);
+          setSections(body.data.sections);
+        }
+      } catch (error) {
+        console.error("[EventsPage] Failed to load levels/sections", error);
+      } finally {
+        if (!isCancelled) setIsLoadingLevels(false);
+      }
+    }
+
+    void loadLevelsAndSections();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  // Load students for specific students mode and exclusions
+  useEffect(() => {
+    if (
+      audienceMode !== "students" &&
+      audienceMode !== "mixed" &&
+      !showExclusions
+    ) {
+      return;
+    }
+    if (allStudents.length > 0) return; // Already loaded
+
+    let isCancelled = false;
+
+    async function loadStudents() {
+      setIsLoadingStudents(true);
+
+      try {
+        const response = await fetch("/api/sis/students", { method: "GET" });
+
+        if (shouldRedirectToLogin(response)) return;
+
+        const body = (await response.json().catch(() => null)) as
+          | { success?: boolean; data?: { students: StudentDto[] }; error?: { message?: string } }
+          | null;
+
+        if (!response.ok || !body?.success || !body.data) {
+          throw new Error(body?.error?.message ?? "Unable to load students.");
+        }
+
+        if (!isCancelled) {
+          setAllStudents(body.data.students);
+        }
+      } catch (error) {
+        console.error("[EventsPage] Failed to load students", error);
+      } finally {
+        if (!isCancelled) setIsLoadingStudents(false);
+      }
+    }
+
+    void loadStudents();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [audienceMode, allStudents.length, showExclusions]);
+
+  // Helper: Get sections for a level
+  const getSectionsForLevel = useCallback(
+    (levelId: string) => sections.filter((s) => s.levelId === levelId),
+    [sections]
+  );
+
+  // Helper: Check if all sections of a level are selected
+  const isLevelFullySelected = useCallback(
+    (levelId: string) => {
+      const levelSections = getSectionsForLevel(levelId);
+      if (levelSections.length === 0) return selectedLevelIds.has(levelId);
+      return levelSections.every((s) => selectedSectionIds.has(s.id));
+    },
+    [getSectionsForLevel, selectedLevelIds, selectedSectionIds]
+  );
+
+  // Helper: Check if some (but not all) sections of a level are selected
+  const isLevelPartiallySelected = useCallback(
+    (levelId: string) => {
+      const levelSections = getSectionsForLevel(levelId);
+      if (levelSections.length === 0) return false;
+      const selectedCount = levelSections.filter((s) => selectedSectionIds.has(s.id)).length;
+      return selectedCount > 0 && selectedCount < levelSections.length;
+    },
+    [getSectionsForLevel, selectedSectionIds]
+  );
+
+  // Toggle level selection (selects/deselects all its sections)
+  const toggleLevelSelection = useCallback(
+    (levelId: string) => {
+      const levelSections = getSectionsForLevel(levelId);
+      const isFullySelected = isLevelFullySelected(levelId);
+
+      if (isFullySelected) {
+        // Deselect level and all its sections
+        setSelectedLevelIds((prev) => {
+          const next = new Set(prev);
+          next.delete(levelId);
+          return next;
+        });
+        setSelectedSectionIds((prev) => {
+          const next = new Set(prev);
+          levelSections.forEach((s) => next.delete(s.id));
+          return next;
+        });
+      } else {
+        // Select level and all its sections
+        setSelectedLevelIds((prev) => new Set(prev).add(levelId));
+        setSelectedSectionIds((prev) => {
+          const next = new Set(prev);
+          levelSections.forEach((s) => next.add(s.id));
+          return next;
+        });
+      }
+    },
+    [getSectionsForLevel, isLevelFullySelected]
+  );
+
+  // Toggle individual section selection
+  const toggleSectionSelection = useCallback(
+    (sectionId: string, levelId: string) => {
+      setSelectedSectionIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(sectionId)) {
+          next.delete(sectionId);
+        } else {
+          next.add(sectionId);
+        }
+        return next;
+      });
+
+      // Update level selection state based on sections
+      const levelSections = getSectionsForLevel(levelId);
+      setSelectedSectionIds((currentSections) => {
+        const allSelected = levelSections.every((s) => currentSections.has(s.id));
+        setSelectedLevelIds((prevLevels) => {
+          const nextLevels = new Set(prevLevels);
+          if (allSelected) {
+            nextLevels.add(levelId);
+          } else {
+            nextLevels.delete(levelId);
+          }
+          return nextLevels;
+        });
+        return currentSections;
+      });
+    },
+    [getSectionsForLevel]
+  );
+
+  // Toggle level expansion
+  const toggleLevelExpansion = useCallback((levelId: string) => {
+    setExpandedLevelIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(levelId)) {
+        next.delete(levelId);
+      } else {
+        next.add(levelId);
+      }
+      return next;
+    });
+  }, []);
+
+  // Filter students based on search query
+  const filteredStudents = allStudents.filter((student) => {
+    if (!studentSearchQuery.trim()) return true;
+    const query = studentSearchQuery.toLowerCase();
+    return (
+      student.name.toLowerCase().includes(query) ||
+      student.lrn.toLowerCase().includes(query) ||
+      student.grade.toLowerCase().includes(query) ||
+      student.section.toLowerCase().includes(query)
+    );
+  });
+
+  // Filter sections for exclusion search
+  const excludeFilteredSections = sections.filter((section) => {
+    if (!excludeSectionSearch.trim()) return true;
+    const query = excludeSectionSearch.toLowerCase();
+    const level = levels.find((l) => l.id === section.levelId);
+    return (
+      section.name.toLowerCase().includes(query) ||
+      (level?.name.toLowerCase().includes(query) ?? false)
+    );
+  });
+
+  // Filter students for exclusion search
+  const excludeFilteredStudents = allStudents.filter((student) => {
+    if (!excludeStudentSearch.trim()) return true;
+    const query = excludeStudentSearch.toLowerCase();
+    return (
+      student.name.toLowerCase().includes(query) ||
+      student.lrn.toLowerCase().includes(query) ||
+      student.grade.toLowerCase().includes(query) ||
+      student.section.toLowerCase().includes(query)
+    );
+  });
+
+  // Build audience config JSON from current state
+  const buildAudienceConfig = useCallback((): EventAudienceConfig => {
+    const rules: AudienceRule[] = [];
+
+    if (audienceMode === "all") {
+      rules.push({ kind: "ALL_STUDENTS", effect: "include" });
+    } else if (audienceMode === "level_section") {
+      // Include selected levels (where all sections are selected)
+      const fullySelectedLevelIds = levels
+        .filter((l) => isLevelFullySelected(l.id))
+        .map((l) => l.id);
+
+      if (fullySelectedLevelIds.length > 0) {
+        rules.push({ kind: "LEVEL", effect: "include", levelIds: fullySelectedLevelIds });
+      }
+
+      // Include sections that are selected but their level is not fully selected
+      const partialSectionIds = Array.from(selectedSectionIds).filter((sId) => {
+        const section = sections.find((s) => s.id === sId);
+        if (!section || !section.levelId) return true;
+        return !fullySelectedLevelIds.includes(section.levelId);
+      });
+
+      if (partialSectionIds.length > 0) {
+        rules.push({ kind: "SECTION", effect: "include", sectionIds: partialSectionIds });
+      }
+    } else if (audienceMode === "students") {
+      if (selectedStudentIds.size > 0) {
+        rules.push({ kind: "STUDENT", effect: "include", studentIds: Array.from(selectedStudentIds) });
+      }
+    } else if (audienceMode === "mixed") {
+      // Levels
+      const fullySelectedLevelIds = levels
+        .filter((l) => isLevelFullySelected(l.id))
+        .map((l) => l.id);
+
+      if (fullySelectedLevelIds.length > 0) {
+        rules.push({ kind: "LEVEL", effect: "include", levelIds: fullySelectedLevelIds });
+      }
+
+      // Sections
+      const partialSectionIds = Array.from(selectedSectionIds).filter((sId) => {
+        const section = sections.find((s) => s.id === sId);
+        if (!section || !section.levelId) return true;
+        return !fullySelectedLevelIds.includes(section.levelId);
+      });
+
+      if (partialSectionIds.length > 0) {
+        rules.push({ kind: "SECTION", effect: "include", sectionIds: partialSectionIds });
+      }
+
+      // Students
+      if (selectedStudentIds.size > 0) {
+        rules.push({ kind: "STUDENT", effect: "include", studentIds: Array.from(selectedStudentIds) });
+      }
+    }
+
+    // Add exclusion rules
+    if (excludedLevelIds.size > 0) {
+      rules.push({ kind: "LEVEL", effect: "exclude", levelIds: Array.from(excludedLevelIds) });
+    }
+    if (excludedSectionIds.size > 0) {
+      rules.push({ kind: "SECTION", effect: "exclude", sectionIds: Array.from(excludedSectionIds) });
+    }
+    if (excludedStudentIds.size > 0) {
+      rules.push({ kind: "STUDENT", effect: "exclude", studentIds: Array.from(excludedStudentIds) });
+    }
+
+    return { version: 1, rules };
+  }, [
+    audienceMode,
+    levels,
+    sections,
+    selectedSectionIds,
+    selectedStudentIds,
+    excludedLevelIds,
+    excludedSectionIds,
+    excludedStudentIds,
+    isLevelFullySelected,
+  ]);
+
+  // Build audience summary for display
+  const getAudienceSummary = useCallback((): string => {
+    if (audienceMode === "all") {
+      if (excludedStudentIds.size > 0 || excludedSectionIds.size > 0 || excludedLevelIds.size > 0) {
+        const exclusions: string[] = [];
+        if (excludedLevelIds.size > 0) exclusions.push(`${excludedLevelIds.size} level(s)`);
+        if (excludedSectionIds.size > 0) exclusions.push(`${excludedSectionIds.size} section(s)`);
+        if (excludedStudentIds.size > 0) exclusions.push(`${excludedStudentIds.size} student(s)`);
+        return `All students except ${exclusions.join(", ")}`;
+      }
+      return "All students";
+    }
+
+    const parts: string[] = [];
+
+    if (audienceMode === "level_section" || audienceMode === "mixed") {
+      const fullySelectedLevels = levels.filter((l) => isLevelFullySelected(l.id));
+      const partialLevels = levels.filter((l) => isLevelPartiallySelected(l.id));
+
+      if (fullySelectedLevels.length > 0) {
+        parts.push(fullySelectedLevels.map((l) => l.name).join(", "));
+      }
+
+      if (partialLevels.length > 0) {
+        partialLevels.forEach((level) => {
+          const levelSections = getSectionsForLevel(level.id).filter((s) => selectedSectionIds.has(s.id));
+          if (levelSections.length > 0) {
+            parts.push(`${level.name}: ${levelSections.map((s) => s.name).join(", ")}`);
+          }
+        });
+      }
+    }
+
+    if ((audienceMode === "students" || audienceMode === "mixed") && selectedStudentIds.size > 0) {
+      parts.push(`${selectedStudentIds.size} specific student(s)`);
+    }
+
+    if (parts.length === 0) {
+      return "No audience selected";
+    }
+
+    let summary = parts.join(" + ");
+
+    if (excludedStudentIds.size > 0 || excludedSectionIds.size > 0 || excludedLevelIds.size > 0) {
+      const exclusions: string[] = [];
+      if (excludedLevelIds.size > 0) exclusions.push(`${excludedLevelIds.size} level(s)`);
+      if (excludedSectionIds.size > 0) exclusions.push(`${excludedSectionIds.size} section(s)`);
+      if (excludedStudentIds.size > 0) exclusions.push(`${excludedStudentIds.size} student(s)`);
+      summary += ` (excluding ${exclusions.join(", ")})`;
+    }
+
+    return summary;
+  }, [
+    audienceMode,
+    levels,
+    selectedSectionIds,
+    selectedStudentIds,
+    excludedLevelIds,
+    excludedSectionIds,
+    excludedStudentIds,
+    isLevelFullySelected,
+    isLevelPartiallySelected,
+    getSectionsForLevel,
+  ]);
+
+  // Compute list of dates from the selected range
+  const eventDates = useMemo((): Date[] => {
+    if (!createEventRange?.from) return [];
+    const start = createEventRange.from;
+    const end = createEventRange.to ?? createEventRange.from;
+    return eachDayOfInterval({ start, end });
+  }, [createEventRange]);
+
+  // Initialize date configs when range changes
+  useEffect(() => {
+    if (eventDates.length === 0) {
+      setDateSessionConfigs(new Map());
+      setSelectedConfigDate(null);
+      return;
+    }
+
+    setDateSessionConfigs((prev) => {
+      const next = new Map<string, DateSessionConfig>();
+      for (const d of eventDates) {
+        const dateStr = format(d, "yyyy-MM-dd");
+        // Preserve existing config if present, otherwise create default
+        if (prev.has(dateStr)) {
+          next.set(dateStr, prev.get(dateStr)!);
+        } else {
+          next.set(dateStr, createDefaultDateConfig(dateStr));
+        }
+      }
+      return next;
+    });
+
+    // Auto-select first date if none selected or selected date is no longer in range
+    setSelectedConfigDate((prev) => {
+      const firstDateStr = format(eventDates[0], "yyyy-MM-dd");
+      if (!prev) return firstDateStr;
+      const stillInRange = eventDates.some((d) => format(d, "yyyy-MM-dd") === prev);
+      return stillInRange ? prev : firstDateStr;
+    });
+  }, [eventDates]);
+
+  // Get current date's config
+  const currentDateConfig = useMemo((): DateSessionConfig | null => {
+    if (!selectedConfigDate) return null;
+    return dateSessionConfigs.get(selectedConfigDate) ?? null;
+  }, [selectedConfigDate, dateSessionConfigs]);
+
+  // Toggle period for the selected date
+  const toggleSessionPeriod = useCallback(
+    (period: SessionPeriod) => {
+      if (!selectedConfigDate) return;
+      setDateSessionConfigs((prev) => {
+        const next = new Map(prev);
+
+        if (useSameScheduleForAllDays) {
+          for (const [dateStr, config] of next.entries()) {
+            const newEnabledPeriods = new Set(config.enabledPeriods);
+            if (newEnabledPeriods.has(period)) {
+              newEnabledPeriods.delete(period);
+            } else {
+              newEnabledPeriods.add(period);
+            }
+            next.set(dateStr, { ...config, enabledPeriods: newEnabledPeriods });
+          }
+          return next;
+        }
+
+        const config = next.get(selectedConfigDate);
+        if (!config) return prev;
+        const newEnabledPeriods = new Set(config.enabledPeriods);
+        if (newEnabledPeriods.has(period)) {
+          newEnabledPeriods.delete(period);
+        } else {
+          newEnabledPeriods.add(period);
+        }
+        next.set(selectedConfigDate, { ...config, enabledPeriods: newEnabledPeriods });
+        return next;
+      });
+    },
+    [selectedConfigDate, useSameScheduleForAllDays],
+  );
+
+  // Update session time for the selected date
+  const updateSessionTime = useCallback(
+    (sessionId: string, field: "opens" | "lateAfter" | "closes", value: string) => {
+      if (!selectedConfigDate) return;
+      setDateSessionConfigs((prev) => {
+        const next = new Map(prev);
+
+        if (useSameScheduleForAllDays) {
+          for (const [dateStr, config] of next.entries()) {
+            const newSessionsForAll = config.sessions.map((session) =>
+              session.id === sessionId ? { ...session, [field]: value } : session,
+            );
+            next.set(dateStr, { ...config, sessions: newSessionsForAll });
+          }
+          return next;
+        }
+
+        const config = next.get(selectedConfigDate);
+        if (!config) return prev;
+        const newSessions = config.sessions.map((session) =>
+          session.id === sessionId ? { ...session, [field]: value } : session,
+        );
+        next.set(selectedConfigDate, { ...config, sessions: newSessions });
+        return next;
+      });
+    },
+    [selectedConfigDate, useSameScheduleForAllDays],
+  );
+
+  // Build version 2 session config JSON with per-date sessions
+  const buildSessionConfigJson = useCallback((): string => {
+    const dates = Array.from(dateSessionConfigs.entries()).map(([dateStr, config]) => ({
+      date: dateStr,
+      sessions: config.sessions
+        .filter((session) => config.enabledPeriods.has(session.period))
+        .map((session) => ({
+          id: session.id,
+          name: session.name,
+          period: session.period,
+          direction: session.direction,
+          opens: session.opens,
+          lateAfter: session.supportsLateAfter && session.lateAfter ? session.lateAfter : null,
+          closes: session.closes,
+        })),
+    }));
+
+    return JSON.stringify({
+      version: 2,
+      dates,
+    });
+  }, [dateSessionConfigs]);
+
+  /**
+   * Handle Create/Update Event form submission.
+   * 
+   * Calls POST or PUT /api/sems/events based on edit mode.
+   */
+  const handleEventFormSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setCreateEventError(null);
+    setIsCreatingEvent(true);
+
+    try {
+      const formData = new FormData(e.currentTarget);
+      
+      const payload: Record<string, unknown> = {
+        title: formData.get("title") as string,
+        startDate: formData.get("startDate") as string,
+        endDate: formData.get("endDate") as string,
+        facilityId: formData.get("facilityId") as string || undefined,
+        audienceConfigJson: formData.get("audienceConfigJson") as string,
+        sessionConfigJson: formData.get("sessionConfigJson") as string,
+      };
+
+      // Add ID if editing
+      if (editingEventId) {
+        payload.id = editingEventId;
+      }
+
+      const response = await fetch("/api/sems/events", {
+        method: editingEventId ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (shouldRedirectToLogin(response)) {
+        return;
+      }
+
+      const body = await response.json().catch(() => null) as {
+        success?: boolean;
+        data?: { event: unknown };
+        error?: { message?: string; details?: Array<{ field: string; message: string }> };
+      } | null;
+
+      if (!response.ok || !body?.success) {
+        // Extract error message
+        let errorMessage = body?.error?.message ?? (editingEventId ? "Unable to update event." : "Unable to create event.");
+        
+        // If validation errors, show the first one
+        if (body?.error?.details && body.error.details.length > 0) {
+          const firstError = body.error.details[0];
+          errorMessage = `${firstError.field}: ${firstError.message}`;
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      // Success - close dialog and reset form
+      setIsCreateDialogOpen(false);
+      resetForm();
+
+      // Refresh events list
+      void loadEvents();
+      console.log(`[EventsPage] Event ${editingEventId ? "updated" : "created"} successfully:`, body.data?.event);
+
+    } catch (error) {
+      const message = error instanceof Error ? error.message : (editingEventId ? "Unable to update event." : "Unable to create event.");
+      setCreateEventError(message);
+      console.error(`[EventsPage] Failed to ${editingEventId ? "update" : "create"} event:`, error);
+    } finally {
+      setIsCreatingEvent(false);
+    }
+  }, [editingEventId, loadEvents, resetForm]);
 
   // Show loading state while validating session
   if (loading) {
@@ -94,7 +1234,7 @@ export default function EventsPage() {
   }
 
   // RBAC Guard - check if user has admin, super_admin, or staff role
-  const hasAccess = user?.roles.some(role => 
+  const hasAccess = user?.roles.some(role =>
     role === "ADMIN" || role === "SUPER_ADMIN" || role === "STAFF"
   );
 
@@ -133,7 +1273,10 @@ export default function EventsPage() {
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              onClick={() => setIsCreateDialogOpen(true)}
+              onClick={() => {
+                resetForm();
+                setIsCreateDialogOpen(true);
+              }}
               className="bg-[#1B4D3E] text-white hover:bg-[#163e32] text-sm px-4 py-2 rounded-lg shadow-sm"
             >
               + Create Event
@@ -156,9 +1299,9 @@ export default function EventsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All venues</SelectItem>
-                      {venueOptions.map((venue) => (
-                        <SelectItem key={venue} value={venue}>
-                          {venue}
+                      {facilities.map((facility) => (
+                        <SelectItem key={facility.id} value={facility.name}>
+                          {facility.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -180,6 +1323,7 @@ export default function EventsPage() {
                 <TableHeader>
                   <TableRow className="bg-gray-50">
                     <TableHead className="font-bold text-[#1B4D3E]">Event Name</TableHead>
+                    <TableHead className="font-bold text-[#1B4D3E]">Date</TableHead>
                     <TableHead className="font-bold text-[#1B4D3E]">Time</TableHead>
                     <TableHead className="font-bold text-[#1B4D3E]">Venue</TableHead>
                     <TableHead className="font-bold text-[#1B4D3E]">Audience</TableHead>
@@ -188,46 +1332,90 @@ export default function EventsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody
-                  key={`${venueFilter}-${searchTerm}`}
+                  key={`${venueFilter}-${searchTerm}-${eventsList.length}`}
                   className="table-filter-animate"
                 >
-                  {EVENTS_DATA.todaysEvents
-                    .filter((event) => venueFilter === "all" || event.venue === venueFilter)
-                    .filter((event) => {
-                      if (!searchTerm.trim()) return true;
-                      const query = searchTerm.toLowerCase();
-                      return (
-                        event.name.toLowerCase().includes(query) ||
-                        event.venue.toLowerCase().includes(query) ||
-                        event.audience.toLowerCase().includes(query) ||
-                        event.status.toLowerCase().includes(query)
-                      );
-                    })
-                    .map((event) => (
-                    <TableRow
-                      key={event.id}
-                      className="cursor-pointer transition-all duration-150 hover:bg-white hover:shadow-sm hover:-translate-y-0.5 hover:border-gray-100"
-                    >
-                      <TableCell className="font-medium text-gray-900">{event.name}</TableCell>
-                      <TableCell className="text-gray-500">{event.time}</TableCell>
-                      <TableCell className="text-gray-500">{event.venue}</TableCell>
-                      <TableCell className="text-gray-500">{event.audience}</TableCell>
-                      <TableCell className="text-right font-medium">{event.attendees}</TableCell>
-                      <TableCell className="text-right">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            event.status === "Live"
-                              ? "bg-emerald-100 text-emerald-800 animate-pulse"
-                              : event.status === "Completed"
-                              ? "bg-gray-100 text-gray-800"
-                              : "bg-amber-50 text-amber-700 border border-amber-100"
-                          }`}
-                        >
-                          {event.status}
-                        </span>
+                  {isLoadingEvents ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8">
+                        <div className="flex items-center justify-center gap-2 text-gray-500">
+                          <span className="h-4 w-4 border-2 border-gray-300 border-t-[#1B4D3E] rounded-full animate-spin" />
+                          Loading events...
+                        </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : eventsError ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8">
+                        <p className="text-red-500">{eventsError}</p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-2"
+                          onClick={() => void loadEvents()}
+                        >
+                          Retry
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ) : eventsList.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                        No events found. Create your first event to get started.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    eventsList.map((event) => {
+                      // Format date: "Nov 27" or "Nov 27 - 28" for multi-day
+                      const formatEventDate = () => {
+                        if (!event.startDate) return "—";
+                        const start = new Date(event.startDate);
+                        const startStr = format(start, "MMM d");
+
+                        if (!event.endDate || event.startDate === event.endDate) {
+                          return startStr;
+                        }
+
+                        const end = new Date(event.endDate);
+                        // Same month: "Nov 27 - 28"
+                        if (start.getMonth() === end.getMonth()) {
+                          return `${startStr} - ${format(end, "d")}`;
+                        }
+                        // Different month: "Nov 27 - Dec 2"
+                        return `${startStr} - ${format(end, "MMM d")}`;
+                      };
+
+                      return (
+                        <TableRow
+                          key={event.id}
+                          onClick={() => void openEditDialog(event.id)}
+                          className="cursor-pointer transition-all duration-150 hover:bg-white hover:shadow-sm hover:-translate-y-0.5 hover:border-gray-100"
+                        >
+                          <TableCell className="font-medium text-gray-900">{event.title}</TableCell>
+                          <TableCell className="text-gray-500 whitespace-nowrap">{formatEventDate()}</TableCell>
+                          <TableCell className="text-gray-500">{event.timeRange}</TableCell>
+                          <TableCell className="text-gray-500">{event.venue ?? ""}</TableCell>
+                          <TableCell className="text-gray-500">{event.audienceSummary}</TableCell>
+                          <TableCell className="text-right font-medium">
+                            {event.actualAttendees} / {event.expectedAttendees}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${
+                                event.status === "live"
+                                  ? "bg-emerald-100 text-emerald-800 animate-pulse"
+                                  : event.status === "completed"
+                                  ? "bg-gray-100 text-gray-800"
+                                  : "bg-amber-50 text-amber-700 border border-amber-100"
+                              }`}
+                            >
+                              {event.status}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
                 </TableBody>
               </Table>
             </div>
@@ -240,16 +1428,23 @@ export default function EventsPage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl border border-gray-100 dialog-panel-animate">
             <div className="flex items-start justify-between px-6 pt-5 pb-3 border-b border-gray-100">
               <div>
-                <h2 className="text-lg font-bold text-gray-900">Create Event</h2>
+                <h2 className="text-lg font-bold text-gray-900">
+                  {isEditMode ? "Edit Event" : "Create Event"}
+                </h2>
                 <p className="text-sm text-gray-500">
-                  Configure the event details, target audience, and session timing.
+                  {isEditMode
+                    ? "Update the event details, target audience, and session timing."
+                    : "Configure the event details, target audience, and session timing."}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setIsCreateDialogOpen(false)}
+                onClick={() => {
+                  setIsCreateDialogOpen(false);
+                  resetForm();
+                }}
                 className="text-gray-400 hover:text-gray-600"
-                aria-label="Close create event dialog"
+                aria-label="Close event dialog"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -257,12 +1452,25 @@ export default function EventsPage() {
 
             <form
               className="px-6 pb-5 pt-4 space-y-6 max-h-[70vh] overflow-y-auto hide-scrollbar"
-              onSubmit={(e) => {
-                e.preventDefault();
-                // TODO: Wire this form to Supabase-backed create-event endpoint
-                setIsCreateDialogOpen(false);
-              }}
+              onSubmit={handleEventFormSubmit}
             >
+              {/* Loading state for edit mode */}
+              {isLoadingEditEvent && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <span className="h-4 w-4 border-2 border-gray-300 border-t-[#1B4D3E] rounded-full animate-spin" />
+                    Loading event data...
+                  </div>
+                </div>
+              )}
+
+              {/* Error display */}
+              {createEventError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-700">{createEventError}</p>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2 space-y-1.5">
                   <label className="block text-sm font-medium text-gray-700">Event Title</label>
@@ -270,8 +1478,11 @@ export default function EventsPage() {
                     name="title"
                     type="text"
                     required
+                    value={createEventTitle}
+                    onChange={(e) => setCreateEventTitle(e.target.value)}
                     placeholder="e.g. Foundation Day"
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                    disabled={isCreatingEvent}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -329,96 +1540,801 @@ export default function EventsPage() {
                 </div>
                 <div className="space-y-1.5">
                   <label className="block text-sm font-medium text-gray-700">Venue</label>
-                  <input
-                    name="venue"
-                    type="text"
-                    required
-                    placeholder="e.g. Main Grounds"
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
-                  />
+                  <Select
+                    value={selectedFacilityId}
+                    onValueChange={setSelectedFacilityId}
+                  >
+                    <SelectTrigger className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm">
+                      <SelectValue
+                        placeholder={
+                          isLoadingFacilities
+                            ? "Loading venues..."
+                            : facilitiesError
+                            ? "Failed to load venues"
+                            : operationalFacilities.length
+                            ? "Select venue"
+                            : facilities.length
+                            ? "No operational venues available"
+                            : "No facilities available"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {operationalFacilities.map((facility) => (
+                        <SelectItem
+                          key={facility.id}
+                          value={facility.id}
+                          className="data-[highlighted]:bg-[#1B4D3E] data-[highlighted]:text-white cursor-pointer"
+                        >
+                          {facility.name} - {facility.location}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <input type="hidden" name="facilityId" value={selectedFacilityId} />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-gray-800">Audience Filter</p>
-                  <p className="text-xs text-gray-500 mb-1">
-                    Who is this event for? Select the target grade levels.
-                  </p>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    {[
-                      "Grade 7",
-                      "Grade 8",
-                      "Grade 9",
-                      "Grade 10",
-                      "Grade 11",
-                      "Grade 12",
-                    ].map((grade) => (
-                      <label
-                        key={grade}
-                        className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-gray-700 cursor-pointer hover:bg-white hover:border-[#1B4D3E]/30"
-                      >
-                        <input
-                          type="checkbox"
-                          name="audience"
-                          value={grade}
-                          className="h-3.5 w-3.5 rounded border-gray-300 text-[#1B4D3E] focus:ring-[#1B4D3E]/40"
-                        />
-                        <span className="text-xs font-medium">{grade}</span>
-                      </label>
-                    ))}
+              {/* Audience Filter - Full Width */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">Audience Filter</p>
+                    <p className="text-xs text-gray-500">
+                      Define who can attend this event.
+                    </p>
                   </div>
+                  <Badge variant="outline" className="text-xs bg-gray-50">
+                    {getAudienceSummary()}
+                  </Badge>
                 </div>
 
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-gray-800">Session Configuration</p>
-                  <p className="text-xs text-gray-500 mb-1">
-                    Define the time window and late threshold for this session.
-                  </p>
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <label className="block text-xs font-medium text-gray-700">Session Name</label>
-                      <input
-                        name="sessionName"
-                        type="text"
-                        placeholder="e.g. Morning Entry"
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
-                      />
+                {/* Audience Mode Selector */}
+                <TooltipProvider>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      {
+                        value: "all" as AudienceMode,
+                        label: "All Students",
+                        icon: Users,
+                        description:
+                          "Allow all active students. Use exclusions to remove specific levels, sections, or students.",
+                      },
+                      {
+                        value: "level_section" as AudienceMode,
+                        label: "By Level / Section",
+                        icon: ChevronDown,
+                        description:
+                          "Allow all students in the selected year levels and/or specific sections.",
+                      },
+                      {
+                        value: "students" as AudienceMode,
+                        label: "Specific Students",
+                        icon: Search,
+                        description:
+                          "Allow only individually selected students, regardless of level or section.",
+                      },
+                      {
+                        value: "mixed" as AudienceMode,
+                        label: "Mixed Selection",
+                        icon: Check,
+                        description:
+                          "Combine levels/sections and specific students into a single audience rule.",
+                      },
+                    ].map(({ value, label, icon: Icon, description }) => (
+                      <Tooltip key={value}>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={() => setAudienceMode(value)}
+                            className={cn(
+                              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                              audienceMode === value
+                                ? "bg-[#1B4D3E] text-white shadow-sm"
+                                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            )}
+                          >
+                            <Icon className="h-3.5 w-3.5" />
+                            {label}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">
+                          <p>{description}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </TooltipProvider>
+
+                {/* Mode: All Students */}
+                {audienceMode === "all" && (
+                  <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100">
+                    <p className="text-sm text-emerald-800">
+                      <strong>All active students</strong> will be allowed to attend this event.
+                    </p>
+                    <p className="text-xs text-emerald-600 mt-1">
+                      Use exclusions below if you need to exclude specific levels, sections, or students.
+                    </p>
+                  </div>
+                )}
+
+                {/* Mode: By Level / Section */}
+                {(audienceMode === "level_section" || audienceMode === "mixed") && (
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
+                      <p className="text-xs font-medium text-gray-700">
+                        Select levels and/or specific sections
+                      </p>
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="space-y-1.5">
-                        <label className="block text-xs font-medium text-gray-700">Opens</label>
-                        <TimePicker
-                          value={openTime}
-                          onChange={setOpenTime}
-                          placeholder="--:--"
-                          minuteStep={5}
-                        />
-                        <input type="hidden" name="openTime" value={openTime} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="block text-xs font-medium text-gray-700">Late After</label>
-                        <TimePicker
-                          value={lateThresholdTime}
-                          onChange={setLateThresholdTime}
-                          placeholder="--:--"
-                          minuteStep={5}
-                        />
-                        <input type="hidden" name="lateThreshold" value={lateThresholdTime} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="block text-xs font-medium text-gray-700">Closes</label>
-                        <TimePicker
-                          value={closeTime}
-                          onChange={setCloseTime}
-                          placeholder="--:--"
-                          minuteStep={5}
-                        />
-                        <input type="hidden" name="closeTime" value={closeTime} />
-                      </div>
+                    <div className="max-h-48 overflow-y-auto">
+                      {isLoadingLevels ? (
+                        <div className="p-4 text-center text-sm text-gray-500">
+                          Loading levels...
+                        </div>
+                      ) : levels.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-gray-500">
+                          No levels found. Add levels in the SIS module.
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-gray-100">
+                          {levels.map((level) => {
+                            const levelSections = getSectionsForLevel(level.id);
+                            const isExpanded = expandedLevelIds.has(level.id);
+                            const isFullySelected = isLevelFullySelected(level.id);
+                            const isPartiallySelected = isLevelPartiallySelected(level.id);
+
+                            return (
+                              <div key={level.id}>
+                                <div className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleLevelExpansion(level.id)}
+                                    className="p-0.5 hover:bg-gray-200 rounded"
+                                  >
+                                    {isExpanded ? (
+                                      <ChevronDown className="h-4 w-4 text-gray-400" />
+                                    ) : (
+                                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                                    )}
+                                  </button>
+                                  <Checkbox
+                                    id={`level-${level.id}`}
+                                    checked={isFullySelected}
+                                    ref={(el) => {
+                                      if (el) {
+                                        (el as unknown as HTMLInputElement).indeterminate = isPartiallySelected;
+                                      }
+                                    }}
+                                    onCheckedChange={() => toggleLevelSelection(level.id)}
+                                    className="data-[state=checked]:bg-[#1B4D3E] data-[state=checked]:border-[#1B4D3E]"
+                                  />
+                                  <label
+                                    htmlFor={`level-${level.id}`}
+                                    className="flex-1 text-sm font-medium text-gray-800 cursor-pointer"
+                                  >
+                                    {level.name}
+                                  </label>
+                                  <span className="text-xs text-gray-400">
+                                    {levelSections.length} section(s)
+                                  </span>
+                                </div>
+
+                                {isExpanded && levelSections.length > 0 && (
+                                  <div className="bg-gray-50/50 border-t border-gray-100">
+                                    {levelSections.map((section) => (
+                                      <div
+                                        key={section.id}
+                                        className="flex items-center gap-2 pl-10 pr-3 py-1.5 hover:bg-gray-100"
+                                      >
+                                        <Checkbox
+                                          id={`section-${section.id}`}
+                                          checked={selectedSectionIds.has(section.id)}
+                                          onCheckedChange={() =>
+                                            toggleSectionSelection(section.id, level.id)
+                                          }
+                                          className="data-[state=checked]:bg-[#1B4D3E] data-[state=checked]:border-[#1B4D3E]"
+                                        />
+                                        <label
+                                          htmlFor={`section-${section.id}`}
+                                          className="text-sm text-gray-700 cursor-pointer"
+                                        >
+                                          {section.name}
+                                        </label>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
+                )}
+
+                {/* Mode: Specific Students */}
+                {(audienceMode === "students" || audienceMode === "mixed") && (
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
+                      <div className="flex items-center gap-2">
+                        <Search className="h-4 w-4 text-gray-400" />
+                        <Input
+                          type="text"
+                          placeholder="Search students by name, LRN, grade, or section..."
+                          value={studentSearchQuery}
+                          onChange={(e) => setStudentSearchQuery(e.target.value)}
+                          className="h-8 text-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-gray-400"
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-40 overflow-y-auto">
+                      {isLoadingStudents ? (
+                        <div className="p-4 text-center text-sm text-gray-500">
+                          Loading students...
+                        </div>
+                      ) : filteredStudents.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-gray-500">
+                          {studentSearchQuery ? "No students match your search." : "No students found."}
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-gray-100">
+                          {filteredStudents.slice(0, 50).map((student) => (
+                            <div
+                              key={student.id}
+                              className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50"
+                            >
+                              <Checkbox
+                                id={`student-${student.id}`}
+                                checked={selectedStudentIds.has(student.id)}
+                                onCheckedChange={() => {
+                                  setSelectedStudentIds((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(student.id)) {
+                                      next.delete(student.id);
+                                    } else {
+                                      next.add(student.id);
+                                    }
+                                    return next;
+                                  });
+                                }}
+                                className="data-[state=checked]:bg-[#1B4D3E] data-[state=checked]:border-[#1B4D3E]"
+                              />
+                              <label
+                                htmlFor={`student-${student.id}`}
+                                className="flex-1 cursor-pointer"
+                              >
+                                <span className="text-sm font-medium text-gray-800">
+                                  {student.name}
+                                </span>
+                                <span className="text-xs text-gray-500 ml-2">
+                                  {student.grade} - {student.section}
+                                </span>
+                              </label>
+                              <span className="text-xs text-gray-400">{student.lrn}</span>
+                            </div>
+                          ))}
+                          {filteredStudents.length > 50 && (
+                            <div className="px-3 py-2 text-xs text-gray-500 bg-gray-50">
+                              Showing 50 of {filteredStudents.length} students. Use search to narrow results.
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {selectedStudentIds.size > 0 && (
+                      <div className="bg-emerald-50 px-3 py-2 border-t border-emerald-100">
+                        <span className="text-xs text-emerald-700 font-medium">
+                          {selectedStudentIds.size} student(s) selected
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Exclusions Section */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setShowExclusions(!showExclusions)}
+                    className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700"
+                  >
+                    <UserX className="h-3.5 w-3.5" />
+                    {showExclusions ? "Hide exclusions" : "Add exclusions (optional)"}
+                    {(excludedLevelIds.size + excludedSectionIds.size + excludedStudentIds.size) > 0 && (
+                      <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">
+                        {excludedLevelIds.size + excludedSectionIds.size + excludedStudentIds.size}
+                      </Badge>
+                    )}
+                  </button>
+
+                  {showExclusions && (
+                    <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-100 space-y-3">
+                      <p className="text-xs text-red-700">
+                        Excluded items will not be allowed to attend, even if they match the include rules above.
+                      </p>
+
+                      {/* Exclude Levels */}
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium text-red-800">Exclude Levels</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {levels.map((level) => (
+                            <button
+                              key={level.id}
+                              type="button"
+                              onClick={() => {
+                                setExcludedLevelIds((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(level.id)) {
+                                    next.delete(level.id);
+                                  } else {
+                                    next.add(level.id);
+                                  }
+                                  return next;
+                                });
+                              }}
+                              className={cn(
+                                "px-2 py-1 rounded text-xs transition-colors",
+                                excludedLevelIds.has(level.id)
+                                  ? "bg-red-600 text-white"
+                                  : "bg-white text-gray-600 border border-gray-200 hover:border-red-300"
+                              )}
+                            >
+                              {level.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Exclude Sections */}
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium text-red-800">Exclude Sections</p>
+                        <div className="space-y-1">
+                          <Input
+                            type="text"
+                            placeholder="Search sections to exclude..."
+                            value={excludeSectionSearch}
+                            onChange={(e) => setExcludeSectionSearch(e.target.value)}
+                            className="h-8 text-xs bg-white"
+                          />
+                          <div className="max-h-32 overflow-y-auto border border-red-100 rounded-md bg-white">
+                            {sections.length === 0 ? (
+                              <div className="px-3 py-2 text-[11px] text-gray-500">
+                                No sections found.
+                              </div>
+                            ) : excludeFilteredSections.length === 0 && excludeSectionSearch.trim() ? (
+                              <div className="px-3 py-2 text-[11px] text-gray-500">
+                                No sections match your search.
+                              </div>
+                            ) : (
+                              excludeFilteredSections.slice(0, 40).map((section) => {
+                                const level = levels.find((l) => l.id === section.levelId);
+                                const isExcluded = excludedSectionIds.has(section.id);
+                                return (
+                                  <button
+                                    key={section.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setExcludedSectionIds((prev) => {
+                                        const next = new Set(prev);
+                                        if (next.has(section.id)) {
+                                          next.delete(section.id);
+                                        } else {
+                                          next.add(section.id);
+                                        }
+                                        return next;
+                                      });
+                                    }}
+                                    className={cn(
+                                      "w-full flex items-center justify-between px-3 py-1.5 text-[11px] text-left hover:bg-red-50",
+                                      isExcluded && "bg-red-100 text-red-900"
+                                    )}
+                                  >
+                                    <span className="truncate">
+                                      {level?.name} - {section.name}
+                                    </span>
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                        {excludedSectionIds.size > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-1.5">
+                            {Array.from(excludedSectionIds).map((sId) => {
+                              const section = sections.find((s) => s.id === sId);
+                              const level = section ? levels.find((l) => l.id === section.levelId) : null;
+                              return (
+                                <Badge
+                                  key={sId}
+                                  variant="destructive"
+                                  className="text-[10px] cursor-pointer"
+                                  onClick={() => {
+                                    setExcludedSectionIds((prev) => {
+                                      const next = new Set(prev);
+                                      next.delete(sId);
+                                      return next;
+                                    });
+                                  }}
+                                >
+                                  {level?.name} - {section?.name} ×
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Exclude Students - Quick search */}
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium text-red-800">Exclude Students</p>
+                        <p className="text-[10px] text-red-600">
+                          Search and click a student to exclude them.
+                        </p>
+                        <div className="space-y-1">
+                          <Input
+                            type="text"
+                            placeholder="Search students to exclude..."
+                            value={excludeStudentSearch}
+                            onChange={(e) => setExcludeStudentSearch(e.target.value)}
+                            className="h-8 text-xs bg-white"
+                          />
+                          <div className="max-h-32 overflow-y-auto border border-red-100 rounded-md bg-white">
+                            {isLoadingStudents ? (
+                              <div className="px-3 py-2 text-[11px] text-gray-500">
+                                Loading students...
+                              </div>
+                            ) : allStudents.length === 0 ? (
+                              <div className="px-3 py-2 text-[11px] text-gray-500">
+                                No students found.
+                              </div>
+                            ) : excludeFilteredStudents.length === 0 && excludeStudentSearch.trim() ? (
+                              <div className="px-3 py-2 text-[11px] text-gray-500">
+                                No students match your search.
+                              </div>
+                            ) : (
+                              excludeFilteredStudents.slice(0, 30).map((student) => (
+                                <button
+                                  key={student.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setExcludedStudentIds((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(student.id)) {
+                                        next.delete(student.id);
+                                      } else {
+                                        next.add(student.id);
+                                      }
+                                      return next;
+                                    });
+                                  }}
+                                  className={cn(
+                                    "w-full flex items-center justify-between px-3 py-1.5 text-[11px] text-left hover:bg-red-50",
+                                    excludedStudentIds.has(student.id) && "bg-red-100 text-red-900"
+                                  )}
+                                >
+                                  <span className="truncate">
+                                    {student.name}
+                                  </span>
+                                  <span className="ml-2 shrink-0 text-[10px] text-gray-500">
+                                    {student.grade} - {student.section}
+                                  </span>
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                        {excludedStudentIds.size > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {Array.from(excludedStudentIds).map((sId) => {
+                              const student = allStudents.find((s) => s.id === sId);
+                              return (
+                                <Badge
+                                  key={sId}
+                                  variant="destructive"
+                                  className="text-[10px] cursor-pointer"
+                                  onClick={() => {
+                                    setExcludedStudentIds((prev) => {
+                                      const next = new Set(prev);
+                                      next.delete(sId);
+                                      return next;
+                                    });
+                                  }}
+                                >
+                                  {student?.name ?? sId} ×
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
+
+                {/* Hidden field for audience config JSON */}
+                <input
+                  type="hidden"
+                  name="audienceConfigJson"
+                  value={JSON.stringify(buildAudienceConfig())}
+                />
+              </div>
+
+              {/* Session Configuration */}
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-gray-800">Session Configuration</p>
+                <p className="text-xs text-gray-500 mb-1">
+                  Define the time windows and late thresholds for each attendance session.
+                  {eventDates.length > 1 && " Select a date below to configure its sessions."}
+                </p>
+
+                {eventDates.length > 1 && (
+                  <label className="flex items-center gap-2 text-xs text-gray-700">
+                    <Checkbox
+                      checked={useSameScheduleForAllDays}
+                      onCheckedChange={(checked) => {
+                        const next = Boolean(checked);
+                        setUseSameScheduleForAllDays(next);
+
+                        if (next && selectedConfigDate) {
+                          setDateSessionConfigs((prev) => {
+                            const base = prev.get(selectedConfigDate);
+                            if (!base) return prev;
+                            const nextMap = new Map<string, DateSessionConfig>();
+                            for (const [dateStr] of prev.entries()) {
+                              nextMap.set(dateStr, {
+                                date: dateStr,
+                                enabledPeriods: new Set(base.enabledPeriods),
+                                sessions: base.sessions.map((s) => ({ ...s })),
+                              });
+                            }
+                            return nextMap;
+                          });
+                        }
+                      }}
+                      className="data-[state=checked]:bg-[#1B4D3E] data-[state=checked]:border-[#1B4D3E]"
+                    />
+                    <span>Use the same session schedule for every day in this date range</span>
+                  </label>
+                )}
+
+                {/* Date selector (only shown for multi-day events) */}
+                {eventDates.length > 1 && (
+                  <div className="flex flex-wrap gap-1.5 p-2 bg-gray-50 rounded-lg border border-gray-100">
+                    {useSameScheduleForAllDays ? (
+                      (() => {
+                        const first = eventDates[0];
+                        const last = eventDates[eventDates.length - 1];
+                        const label =
+                          format(first, "MMM d") === format(last, "MMM d")
+                            ? format(first, "MMM d, yyyy")
+                            : `${format(first, "MMM d")} – ${format(last, "MMM d, yyyy")}`;
+
+                        // Derive enabled period count from the currently selected config
+                        const enabledCount = currentDateConfig?.enabledPeriods.size ?? 0;
+
+                        return (
+                          <button
+                            key="combined-range"
+                            type="button"
+                            onClick={() => {
+                              if (eventDates.length > 0) {
+                                const firstDateStr = format(eventDates[0], "yyyy-MM-dd");
+                                setSelectedConfigDate(firstDateStr);
+                              }
+                            }}
+                            className="inline-flex flex-col items-center px-3 py-2 rounded-lg text-xs font-medium transition-all min-w-[80px] bg-[#1B4D3E] text-white shadow-sm"
+                          >
+                            <span className="text-[10px] uppercase tracking-wide text-white/80">
+                              {eventDates.length === 1
+                                ? format(first, "EEE")
+                                : `${format(first, "EEE")} – ${format(last, "EEE")}`}
+                            </span>
+                            <span className="font-semibold">{label}</span>
+                            {enabledCount > 0 && (
+                              <span className="text-[9px] mt-0.5 text-white/80">
+                                {enabledCount} period{enabledCount !== 1 ? "s" : ""}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })()
+                    ) : (
+                      eventDates.map((d) => {
+                        const dateStr = format(d, "yyyy-MM-dd");
+                        const isSelected = selectedConfigDate === dateStr;
+                        const config = dateSessionConfigs.get(dateStr);
+                        const enabledCount = config?.enabledPeriods.size ?? 0;
+                        return (
+                          <button
+                            key={dateStr}
+                            type="button"
+                            onClick={() => setSelectedConfigDate(dateStr)}
+                            className={cn(
+                              "inline-flex flex-col items-center px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all min-w-[60px]",
+                              isSelected
+                                ? "bg-[#1B4D3E] text-white shadow-sm"
+                                : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200",
+                            )}
+                          >
+                            <span className="text-[10px] uppercase tracking-wide opacity-70">
+                              {format(d, "EEE")} 
+                            </span>
+                            <span className="font-semibold">{format(d, "MMM d")}</span>
+                            {enabledCount > 0 && (
+                              <span
+                                className={cn(
+                                  "text-[9px] mt-0.5",
+                                  isSelected ? "text-white/70" : "text-gray-400",
+                                )}
+                              >
+                                {enabledCount} period{enabledCount !== 1 ? "s" : ""}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+
+                {/* No date selected message */}
+                {!currentDateConfig && eventDates.length === 0 && (
+                  <div className="p-3 text-xs text-gray-500 border border-dashed border-gray-200 rounded-lg">
+                    Select a date range above to configure sessions.
+                  </div>
+                )}
+
+                {/* Session editor for selected date */}
+                {currentDateConfig && (
+                  <div className="space-y-3">
+                    {/* Period toggles */}
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { period: "morning" as SessionPeriod, label: "Morning" },
+                        { period: "afternoon" as SessionPeriod, label: "Afternoon" },
+                        { period: "evening" as SessionPeriod, label: "Evening" },
+                      ].map(({ period, label }) => {
+                        const isActive = currentDateConfig.enabledPeriods.has(period);
+                        return (
+                          <button
+                            key={period}
+                            type="button"
+                            onClick={() => toggleSessionPeriod(period)}
+                            className={cn(
+                              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                              isActive
+                                ? "bg-[#1B4D3E] text-white shadow-sm"
+                                : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "h-1.5 w-1.5 rounded-full",
+                                period === "morning"
+                                  ? "bg-amber-500"
+                                  : period === "afternoon"
+                                  ? "bg-sky-500"
+                                  : "bg-indigo-500",
+                              )}
+                            />
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Sessions list */}
+                    <div className="border border-gray-200 rounded-lg divide-y">
+                      {currentDateConfig.sessions.filter((session) =>
+                        currentDateConfig.enabledPeriods.has(session.period),
+                      ).length === 0 && (
+                        <div className="p-3 text-xs text-gray-500">
+                          Select at least one period above to configure sessions.
+                        </div>
+                      )}
+
+                      {currentDateConfig.sessions
+                        .filter((session) => currentDateConfig.enabledPeriods.has(session.period))
+                        .map((session) => (
+                          <div key={session.id} className="p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-medium text-gray-800">{session.name}</p>
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] uppercase tracking-wide"
+                              >
+                                {session.direction === "in" ? "Entry" : "Exit"}
+                              </Badge>
+                            </div>
+                            <div className="grid grid-cols-3 gap-3">
+                              <div className="space-y-1">
+                                <label className="block text-[11px] font-medium text-gray-700">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="cursor-help underline decoration-dotted underline-offset-2">
+                                        Opens
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-xs">
+                                      <p>
+                                        The earliest time a student can scan for this session and be counted. Scans
+                                        before this time are not included in this session.
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </label>
+                                <TimePicker
+                                  value={session.opens}
+                                  onChange={(value) => updateSessionTime(session.id, "opens", value)}
+                                  placeholder="--:--"
+                                  minuteStep={5}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="block text-[11px] font-medium text-gray-700">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="cursor-help underline decoration-dotted underline-offset-2">
+                                        Late After
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-xs">
+                                      <p>
+                                        The cut-off time for being on time. Students who scan after this time, but
+                                        before "Closes", will be marked as late for this session.
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </label>
+                                {session.supportsLateAfter ? (
+                                  <TimePicker
+                                    value={session.lateAfter}
+                                    onChange={(value) => updateSessionTime(session.id, "lateAfter", value)}
+                                    placeholder="--:--"
+                                    minuteStep={5}
+                                  />
+                                ) : (
+                                  <div className="text-[11px] text-gray-400 border border-dashed border-gray-200 rounded-lg px-3 py-2 bg-gray-50/50">
+                                    Not applicable for exit sessions
+                                  </div>
+                                )}
+                              </div>
+                              <div className="space-y-1">
+                                <label className="block text-[11px] font-medium text-gray-700">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="cursor-help underline decoration-dotted underline-offset-2">
+                                        Closes
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-xs">
+                                      <p>
+                                        The last time this session accepts scans. Scans after this time will be
+                                        treated as part of the next session, if there is one, or may be rejected.
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </label>
+                                <TimePicker
+                                  value={session.closes}
+                                  onChange={(value) => updateSessionTime(session.id, "closes", value)}
+                                  placeholder="--:--"
+                                  minuteStep={5}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                <input
+                  type="hidden"
+                  name="sessionConfigJson"
+                  value={buildSessionConfigJson()}
+                />
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-4 mt-2 border-t border-gray-100">
@@ -426,15 +2342,27 @@ export default function EventsPage() {
                   type="button"
                   variant="outline"
                   className="text-sm px-4"
-                  onClick={() => setIsCreateDialogOpen(false)}
+                  onClick={() => {
+                    setIsCreateDialogOpen(false);
+                    resetForm();
+                  }}
+                  disabled={isCreatingEvent || isLoadingEditEvent}
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
-                  className="bg-[#1B4D3E] text-white hover:bg-[#163e32] text-sm px-4 py-2 rounded-lg shadow-sm"
+                  className="bg-[#1B4D3E] text-white hover:bg-[#163e32] text-sm px-4 py-2 rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isCreatingEvent || isLoadingEditEvent}
                 >
-                  Save Event
+                  {isCreatingEvent ? (
+                    <span className="flex items-center gap-2">
+                      <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      {isEditMode ? "Updating..." : "Creating..."}
+                    </span>
+                  ) : (
+                    isEditMode ? "Update Event" : "Save Event"
+                  )}
                 </Button>
               </div>
             </form>

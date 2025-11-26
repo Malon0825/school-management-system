@@ -77,7 +77,7 @@ export function TimePicker({
           type="button"
           variant="outline"
           className={cn(
-            "w-full min-w-[112px] justify-between text-left font-normal px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm",
+            "w-full justify-between text-left font-normal px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm",
             !formatted && "text-muted-foreground",
             className,
           )}
