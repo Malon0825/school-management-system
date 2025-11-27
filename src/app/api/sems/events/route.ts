@@ -23,6 +23,8 @@ import {
   type CreateEventDto,
   type EventAudienceConfig,
   type EventSessionConfig,
+  type EventScannerConfig,
+  type UpdateEventDto,
 } from "@/modules/sems";
 
 // ============================================================================
@@ -156,6 +158,7 @@ async function authenticateRequest(
  * - facilityId: string (optional)
  * - audienceConfigJson: string (JSON)
  * - sessionConfigJson: string (JSON)
+ * - scannerConfigJson: string (JSON)
  */
 function parseRequestBody(body: unknown): CreateEventDto | null {
   if (!body || typeof body !== "object") {
@@ -167,6 +170,7 @@ function parseRequestBody(body: unknown): CreateEventDto | null {
   // Parse JSON strings from form data
   let audienceConfig: EventAudienceConfig | undefined;
   let sessionConfig: EventSessionConfig | undefined;
+  let scannerConfig: EventScannerConfig | undefined;
 
   try {
     if (typeof data.audienceConfigJson === "string") {
@@ -200,6 +204,7 @@ function parseRequestBody(body: unknown): CreateEventDto | null {
         : undefined,
     audienceConfig: audienceConfig ?? { version: 1, rules: [] },
     sessionConfig: sessionConfig ?? { version: 2, dates: [] },
+    scannerConfig: scannerConfig ?? { version: 1, scannerIds: [] },
   };
 }
 
@@ -225,7 +230,8 @@ function parseRequestBody(body: unknown): CreateEventDto | null {
  *   "endDate": "2025-03-15",
  *   "facilityId": "uuid",
  *   "audienceConfigJson": "{\"version\":1,\"rules\":[...]}",
- *   "sessionConfigJson": "{\"version\":2,\"dates\":[...]}"
+ *   "sessionConfigJson": "{\"version\":2,\"dates\":[...]}",
+ *   "scannerConfigJson": "{\"version\":1,\"scannerIds\":[...]}"
  * }
  * ```
  *
@@ -409,14 +415,15 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
   const data = body as Record<string, unknown>;
 
   // Parse JSON strings from form data (same as POST)
-  let audienceConfig = undefined;
-  let sessionConfig = undefined;
+  let audienceConfig: EventAudienceConfig | undefined;
+  let sessionConfig: EventSessionConfig | undefined;
+  let scannerConfig: EventScannerConfig | undefined;
 
   try {
     if (typeof data.audienceConfigJson === "string") {
-      audienceConfig = JSON.parse(data.audienceConfigJson);
+      audienceConfig = JSON.parse(data.audienceConfigJson) as EventAudienceConfig;
     } else if (data.audienceConfig && typeof data.audienceConfig === "object") {
-      audienceConfig = data.audienceConfig;
+      audienceConfig = data.audienceConfig as EventAudienceConfig;
     }
   } catch {
     // Will be caught by validation
@@ -424,23 +431,41 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
   try {
     if (typeof data.sessionConfigJson === "string") {
-      sessionConfig = JSON.parse(data.sessionConfigJson);
+      sessionConfig = JSON.parse(data.sessionConfigJson) as EventSessionConfig;
     } else if (data.sessionConfig && typeof data.sessionConfig === "object") {
-      sessionConfig = data.sessionConfig;
+      sessionConfig = data.sessionConfig as EventSessionConfig;
     }
   } catch {
     // Will be caught by validation
   }
 
-  const dto = {
+  try {
+    if (typeof data.scannerConfigJson === "string") {
+      scannerConfig = JSON.parse(data.scannerConfigJson) as EventScannerConfig;
+    } else if (data.scannerConfig && typeof data.scannerConfig === "object") {
+      scannerConfig = data.scannerConfig as EventScannerConfig;
+    }
+  } catch {
+    // Will be caught by validation
+  }
+
+  const dto: UpdateEventDto = {
     id: typeof data.id === "string" ? data.id : "",
     title: typeof data.title === "string" ? data.title : undefined,
-    description: typeof data.description === "string" ? data.description : undefined,
-    startDate: typeof data.startDate === "string" ? data.startDate : undefined,
+    description:
+      typeof data.description === "string" ? data.description : undefined,
+    startDate:
+      typeof data.startDate === "string" ? data.startDate : undefined,
     endDate: typeof data.endDate === "string" ? data.endDate : undefined,
-    facilityId: data.facilityId === null ? null : (typeof data.facilityId === "string" ? data.facilityId : undefined),
+    facilityId:
+      data.facilityId === null
+        ? null
+        : typeof data.facilityId === "string"
+        ? data.facilityId
+        : undefined,
     audienceConfig,
     sessionConfig,
+    scannerConfig,
   };
 
   // Step 3: Create service with repository dependency

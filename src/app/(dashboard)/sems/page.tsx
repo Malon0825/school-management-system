@@ -922,14 +922,13 @@ export default function EventsPage() {
   // Load scanner-capable users when the dialog opens
   useEffect(() => {
     if (!isCreateDialogOpen) return;
-    // Only load once per dialog open; avoid infinite retries on error
-    if (scannerUsers.length > 0 || isLoadingScanners || scannerError) return;
+    // Only load once per dialog open while we have no data
+    if (scannerUsers.length > 0 || isLoadingScanners) return;
 
     let isCancelled = false;
 
     async function loadScanners() {
       setIsLoadingScanners(true);
-      setScannerError(null);
 
       try {
         const response = await fetch("/api/sems/scanners", { method: "GET" });
@@ -967,7 +966,7 @@ export default function EventsPage() {
       // Ensure we don't leave the UI stuck in a loading state when the dialog closes
       setIsLoadingScanners(false);
     };
-  }, [isCreateDialogOpen, scannerUsers.length, isLoadingScanners, scannerError]);
+  }, [isCreateDialogOpen, scannerUsers.length]);
 
   /**
    * Open edit dialog and load event data.

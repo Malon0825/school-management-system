@@ -27,6 +27,7 @@ import type {
   LevelRule,
   SectionRule,
   StudentRule,
+  EventScannerConfig,
 } from "../domain";
 import type { EventRepository } from "../infrastructure";
 
@@ -127,6 +128,7 @@ export class EventService implements IEventService {
       rawEvents.map(async (event) => {
         const audienceConfig = event.target_audience as EventAudienceConfig;
         const sessionConfig = event.session_config as EventSessionConfig;
+        const scannerConfig = event.scanner_assignments as EventScannerConfig;
         const startDate = event.start_date ?? event.event_date ?? "";
         const endDate = event.end_date ?? event.start_date ?? event.event_date ?? "";
 
@@ -135,6 +137,17 @@ export class EventService implements IEventService {
 
         // Compute audience summary
         const audienceSummary = this.computeAudienceSummary(audienceConfig, levelNames);
+
+        // Compute scanner summary
+        const scannerIds = Array.isArray(scannerConfig?.scannerIds)
+          ? scannerConfig.scannerIds
+          : [];
+        let scannerSummary = "No scanners";
+        if (scannerIds.length === 1) {
+          scannerSummary = "1 scanner";
+        } else if (scannerIds.length > 1) {
+          scannerSummary = `${scannerIds.length} scanners`;
+        }
 
         // Compute expected attendees
         const expectedAttendees = await this.computeExpectedAttendees(
@@ -155,6 +168,7 @@ export class EventService implements IEventService {
           timeRange,
           venue: event.facilities?.name ?? null,
           audienceSummary,
+          scannerSummary,
           actualAttendees,
           expectedAttendees,
           status,
@@ -595,6 +609,17 @@ export class EventService implements IEventService {
       }
     }
 
+    // Scanner config validation (optional)
+    let scannerConfig: EventScannerConfig | undefined;
+    if (data.scannerConfig !== undefined) {
+      const scannerConfigResult = this.validateScannerConfig(data.scannerConfig);
+      if (!scannerConfigResult.isValid) {
+        errors.push(...scannerConfigResult.errors);
+      } else {
+        scannerConfig = scannerConfigResult.data;
+      }
+    }
+
     // Session config validation (optional)
     let sessionConfig: EventSessionConfig | undefined;
     if (data.sessionConfig !== undefined) {
@@ -621,6 +646,7 @@ export class EventService implements IEventService {
         endDate: rawEndDate,
         facilityId: rawFacilityId,
         audienceConfig,
+        scannerConfig,
         sessionConfig,
       },
     };
@@ -722,6 +748,12 @@ export class EventService implements IEventService {
       errors.push(...sessionConfigResult.errors);
     }
 
+    // === Scanner config validation ===
+    const scannerConfigResult = this.validateScannerConfig(data.scannerConfig);
+    if (!scannerConfigResult.isValid) {
+      errors.push(...scannerConfigResult.errors);
+    }
+
     if (errors.length > 0) {
       return { isValid: false, errors };
     }
@@ -737,7 +769,51 @@ export class EventService implements IEventService {
         facilityId: rawFacilityId,
         audienceConfig: audienceConfigResult.data!,
         sessionConfig: sessionConfigResult.data!,
+        scannerConfig: scannerConfigResult.data!,
       },
+    };
+  }
+
+  private validateScannerConfig(
+    input: unknown
+  ): ValidationResult<EventScannerConfig> {
+    const errors: ValidationErrorDetail[] = [];
+
+    if (!input || typeof input !== "object") {
+      errors.push({
+        field: "scannerConfig",
+        message: "Scanner configuration is required",
+        code: "REQUIRED",
+      });
+      return { isValid: false, errors };
+    }
+
+    const config = input as Record<string, unknown>;
+
+    if (config.version !== 1) {
+      errors.push({
+        field: "scannerConfig.version",
+        message: "Scanner config version must be 1",
+        code: "INVALID_VERSION",
+      });
+    }
+
+    if (!Array.isArray(config.scannerIds)) {
+      errors.push({
+        field: "scannerConfig.scannerIds",
+        message: "scannerIds must be an array",
+        code: "INVALID_TYPE",
+      });
+    }
+
+    if (errors.length > 0) {
+      return { isValid: false, errors };
+    }
+
+    return {
+      isValid: true,
+      errors: [],
+      data: config as unknown as EventScannerConfig,
     };
   }
 
