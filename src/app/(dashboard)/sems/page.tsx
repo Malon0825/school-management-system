@@ -1877,6 +1877,14 @@ export default function EventsPage() {
           <div className="flex items-center gap-2">
             <Button
               type="button"
+              variant="outline"
+              onClick={() => router.push("/sems/scan")}
+              className="text-sm px-4 py-2 rounded-lg border-gray-200 bg-white text-gray-700 hover:border-emerald-300 hover:text-emerald-800 shadow-sm"
+            >
+              My Scanner Events
+            </Button>
+            <Button
+              type="button"
               onClick={() => {
                 resetForm();
                 setIsCreateDialogOpen(true);

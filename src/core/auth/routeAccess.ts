@@ -8,6 +8,9 @@ interface RouteAccessRule {
 const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { pathPrefix: "/sis", allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF", "TEACHER"] },
   { pathPrefix: "/facilities", allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"] },
+  // Scanner-focused SEMS route: allow scanner role plus admin/staff
+  { pathPrefix: "/sems/scan", allowedRoles: ["SCANNER", "SUPER_ADMIN", "ADMIN", "STAFF"] },
+  // Main SEMS management route: admins and staff only
   { pathPrefix: "/sems", allowedRoles: ["SUPER_ADMIN", "ADMIN", "STAFF"] },
   { pathPrefix: "/dashboard/teacher", allowedRoles: ["TEACHER", "ADMIN", "SUPER_ADMIN"] },
   { pathPrefix: "/dashboard", allowedRoles: ["SUPER_ADMIN", "ADMIN"] },
@@ -35,7 +38,7 @@ export function getDefaultRouteForRoles(roles: UserRole[]): string | null {
   }
 
   if (roles.includes("SCANNER")) {
-    return "/scanner";
+    return "/sems/scan";
   }
 
   if (roles.includes("PARENT")) {
