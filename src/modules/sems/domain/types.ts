@@ -97,6 +97,19 @@ export interface EventAudienceConfig {
 }
 
 // ============================================================================
+// Scanner Assignment Configuration Types
+// ============================================================================
+
+/**
+ * Versioned configuration describing which app users are allowed to scan attendees.
+ */
+export interface EventScannerConfig {
+  version: 1;
+  /** Ordered list of app_user IDs allowed to scan for this event */
+  scannerIds: string[];
+}
+
+// ============================================================================
 // Session Configuration Types
 // ============================================================================
 
@@ -168,6 +181,7 @@ export interface EventRow {
   facility_id: string | null;
   target_audience: EventAudienceConfig;
   session_config: EventSessionConfig;
+  scanner_assignments: EventScannerConfig;
   created_by: string | null;
   created_at: string;
   updated_by: string | null;
@@ -193,6 +207,7 @@ export interface CreateEventDto {
   facilityId?: string;
   audienceConfig: EventAudienceConfig;
   sessionConfig: EventSessionConfig;
+  scannerConfig: EventScannerConfig;
 }
 
 /**
@@ -211,6 +226,7 @@ export interface UpdateEventDto {
   facilityId?: string | null;
   audienceConfig?: EventAudienceConfig;
   sessionConfig?: EventSessionConfig;
+  scannerConfig?: EventScannerConfig;
 }
 
 /**
@@ -235,6 +251,7 @@ export interface EventDto {
   } | null;
   audienceConfig: EventAudienceConfig;
   sessionConfig: EventSessionConfig;
+  scannerConfig: EventScannerConfig;
   createdBy: string | null;
   createdAt: string;
   updatedAt: string | null;
@@ -272,6 +289,8 @@ export interface EventListItemDto {
   venue: string | null;
   /** Human-readable audience summary, e.g., "All Students", "Grades 7-10" */
   audienceSummary: string;
+  /** Summary of assigned scanners */
+  scannerSummary: string;
   /** Number of students who have attended */
   actualAttendees: number;
   /** Expected number of students based on target audience */

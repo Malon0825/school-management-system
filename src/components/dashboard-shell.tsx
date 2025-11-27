@@ -94,9 +94,9 @@ export default function DashboardShell({ children, mobileTitle, mobileDescriptio
   }, []);
 
   return (
-    <div className="h-screen overflow-hidden bg-gradient-to-br from-[#F9FAFB] via-[#FDFBF7] to-[#F3F4F6] flex font-sans text-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-[#F9FAFB] via-[#FDFBF7] to-[#F3F4F6] flex font-sans text-gray-900">
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-40 bg-[#F4F6FB] border-r border-gray-200 transform transition-all duration-300 ease-in-out flex flex-col overflow-hidden ${
+        className={`fixed lg:sticky lg:top-0 left-0 z-40 bg-[#F4F6FB] border-r border-gray-200 transform transition-all duration-300 ease-in-out flex flex-col overflow-hidden h-screen lg:h-screen ${
           isCollapsed ? "lg:w-20" : "lg:w-64"
         } w-64 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}
       >
@@ -301,9 +301,9 @@ export default function DashboardShell({ children, mobileTitle, mobileDescriptio
         )}
       </aside>
 
-      <div className="flex-1 flex flex-col h-screen min-w-0 bg-transparent">
+      <div className="flex-1 flex flex-col min-h-screen min-w-0 bg-transparent">
         <PageTransition>
-          <main className="flex-1 py-4 lg:py-8 px-3 lg:px-4 overflow-y-auto flex flex-col space-y-6 min-h-0">
+          <main className="flex-1 w-full py-4 lg:py-8 px-3 lg:px-4 flex flex-col space-y-6">
             <div className="flex items-center justify-between mb-4 lg:hidden">
               <div>
                 <h1 className="text-lg font-bold text-gray-900">{mobileTitle}</h1>

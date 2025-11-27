@@ -119,6 +119,31 @@ export async function POST(request: NextRequest) {
     isActive: Boolean(appUser.is_active),
   };
 
+  const lastLoginAt = authResult.user.last_sign_in_at ?? new Date().toISOString();
+
+  console.log("[/api/auth/login] Attempting to update last_login_at", {
+    userId,
+    supabaseLastSignInAt: authResult.user.last_sign_in_at,
+    effectiveLastLoginAt: lastLoginAt,
+  });
+
+  const { error: lastLoginUpdateError } = await supabase
+    .from("app_users")
+    .update({ last_login_at: lastLoginAt })
+    .eq("id", userId);
+
+  if (lastLoginUpdateError) {
+    console.error("[/api/auth/login] Failed to update last_login_at", {
+      userId,
+      lastLoginUpdateError,
+    });
+  } else {
+    console.log("[/api/auth/login] Successfully updated last_login_at", {
+      userId,
+      lastLoginAt,
+    });
+  }
+
   const accessToken = authResult.session.access_token;
   const refreshToken = authResult.session.refresh_token;
 

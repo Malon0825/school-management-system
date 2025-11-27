@@ -98,6 +98,13 @@ interface StudentDto {
   status: "Active" | "Inactive";
 }
 
+interface ScannerUser {
+  id: string;
+  fullName: string;
+  email: string;
+  isActive: boolean;
+}
+
 /**
  * Event list item from API for display in the events table.
  */
@@ -107,6 +114,7 @@ interface EventListItem {
   timeRange: string;
   venue: string | null;
   audienceSummary: string;
+   scannerSummary: string;
   actualAttendees: number;
   expectedAttendees: number;
   status: "live" | "scheduled" | "completed";
@@ -143,6 +151,10 @@ interface EventEditData {
         closes: string;
       }>;
     }>;
+  };
+  scannerConfig: {
+    version: 1;
+    scannerIds: string[];
   };
 }
 
@@ -518,6 +530,13 @@ export default function EventsPage() {
   const [excludeStudentSearch, setExcludeStudentSearch] = useState("");
   const [excludeSectionSearch, setExcludeSectionSearch] = useState("");
   
+  // Scanner assignments state
+  const [scannerUsers, setScannerUsers] = useState<ScannerUser[]>([]);
+  const [isLoadingScanners, setIsLoadingScanners] = useState(false);
+  const [scannerSearchQuery, setScannerSearchQuery] = useState("");
+  const [selectedScannerIds, setSelectedScannerIds] = useState<Set<string>>(new Set());
+  const [scannerError, setScannerError] = useState<string | null>(null);
+
   // Exclusion state
   const [excludedLevelIds, setExcludedLevelIds] = useState<Set<string>>(new Set());
   const [excludedSectionIds, setExcludedSectionIds] = useState<Set<string>>(new Set());
@@ -798,6 +817,9 @@ export default function EventsPage() {
     setEditingEventId(null);
     setVenueSearchQuery("");
     setVenueAvailability([]);
+    setSelectedScannerIds(new Set());
+    setScannerSearchQuery("");
+    setScannerError(null);
   }, []);
 
   /**
@@ -897,6 +919,56 @@ export default function EventsPage() {
     };
   }, [isCreateDialogOpen, createEventRange, dateSessionConfigs, editingEventId, operationalFacilities]);
 
+  // Load scanner-capable users when the dialog opens
+  useEffect(() => {
+    if (!isCreateDialogOpen) return;
+    // Only load once per dialog open; avoid infinite retries on error
+    if (scannerUsers.length > 0 || isLoadingScanners || scannerError) return;
+
+    let isCancelled = false;
+
+    async function loadScanners() {
+      setIsLoadingScanners(true);
+      setScannerError(null);
+
+      try {
+        const response = await fetch("/api/sems/scanners", { method: "GET" });
+
+        if (shouldRedirectToLogin(response)) return;
+
+        const body = (await response.json().catch(() => null)) as
+          | { success?: boolean; data?: { scanners: ScannerUser[] }; error?: { message?: string } }
+          | null;
+
+        if (!response.ok || !body?.success || !body.data) {
+          throw new Error(body?.error?.message ?? "Unable to load scanners.");
+        }
+
+        if (!isCancelled) {
+          setScannerUsers(body.data.scanners);
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          const message = error instanceof Error ? error.message : "Unable to load scanners.";
+          setScannerError(message);
+          console.error("[EventsPage] Failed to load scanners", error);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingScanners(false);
+        }
+      }
+    }
+
+    void loadScanners();
+
+    return () => {
+      isCancelled = true;
+      // Ensure we don't leave the UI stuck in a loading state when the dialog closes
+      setIsLoadingScanners(false);
+    };
+  }, [isCreateDialogOpen, scannerUsers.length, isLoadingScanners, scannerError]);
+
   /**
    * Open edit dialog and load event data.
    */
@@ -923,6 +995,13 @@ export default function EventsPage() {
       }
 
       const event = body.data.event;
+
+      // Set scanner assignments
+      if (event.scannerConfig?.scannerIds && Array.isArray(event.scannerConfig.scannerIds)) {
+        setSelectedScannerIds(new Set(event.scannerConfig.scannerIds));
+      } else {
+        setSelectedScannerIds(new Set());
+      }
 
       // Populate form with event data
       setCreateEventTitle(event.title);
@@ -1274,6 +1353,15 @@ export default function EventsPage() {
     );
   });
 
+  const filteredScanners = useMemo(() => {
+    if (!scannerSearchQuery.trim()) return scannerUsers;
+    const query = scannerSearchQuery.toLowerCase();
+    return scannerUsers.filter((user) =>
+      user.fullName.toLowerCase().includes(query) ||
+      user.email.toLowerCase().includes(query)
+    );
+  }, [scannerUsers, scannerSearchQuery]);
+
   // Filter sections for exclusion search
   const excludeFilteredSections = sections.filter((section) => {
     if (!excludeSectionSearch.trim()) return true;
@@ -1442,6 +1530,14 @@ export default function EventsPage() {
     isLevelPartiallySelected,
     getSectionsForLevel,
   ]);
+
+  const buildScannerConfigJson = useCallback((): string => {
+    const ids = Array.from(selectedScannerIds);
+    return JSON.stringify({
+      version: 1,
+      scannerIds: ids,
+    });
+  }, [selectedScannerIds]);
 
   // Compute list of dates from the selected range
   const eventDates = useMemo((): Date[] => {
@@ -1665,6 +1761,7 @@ export default function EventsPage() {
         facilityId: formData.get("facilityId") as string || undefined,
         audienceConfigJson: formData.get("audienceConfigJson") as string,
         sessionConfigJson: formData.get("sessionConfigJson") as string,
+        scannerConfigJson: formData.get("scannerConfigJson") as string,
       };
 
       // Add ID if editing
@@ -1726,6 +1823,7 @@ export default function EventsPage() {
     isCheckingAvailability,
     selectedFacilityId,
     venueAvailability,
+    selectedScannerIds,
   ]);
 
   // Show loading state while validating session
@@ -1890,6 +1988,7 @@ export default function EventsPage() {
                     <TableHead className="font-bold text-[#1B4D3E]">Time</TableHead>
                     <TableHead className="font-bold text-[#1B4D3E]">Venue</TableHead>
                     <TableHead className="font-bold text-[#1B4D3E]">Audience</TableHead>
+                    <TableHead className="font-bold text-[#1B4D3E]">Scanners</TableHead>
                     <TableHead className="text-right font-bold text-[#1B4D3E]">Attendees</TableHead>
                     <TableHead className="text-right font-bold text-[#1B4D3E]">Status</TableHead>
                   </TableRow>
@@ -1967,6 +2066,7 @@ export default function EventsPage() {
                           <TableCell className="text-gray-500">{event.timeRange}</TableCell>
                           <TableCell className="text-gray-500">{event.venue ?? ""}</TableCell>
                           <TableCell className="text-gray-500">{event.audienceSummary}</TableCell>
+                          <TableCell className="text-gray-500">{event.scannerSummary}</TableCell>
                           <TableCell className="text-right font-medium">
                             {event.actualAttendees} / {event.expectedAttendees}
                           </TableCell>
@@ -2556,6 +2656,121 @@ export default function EventsPage() {
                   type="hidden"
                   name="audienceConfigJson"
                   value={JSON.stringify(buildAudienceConfig())}
+                />
+              </div>
+
+              {/* Scanner Access */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">Scanner Access</p>
+                    <p className="text-xs text-gray-500">
+                      Choose which users are allowed to scan attendees for this event.
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="text-xs bg-gray-50">
+                    {selectedScannerIds.size > 0
+                      ? `${selectedScannerIds.size} scanner${selectedScannerIds.size !== 1 ? "s" : ""} selected`
+                      : "No scanners selected"}
+                  </Badge>
+                </div>
+
+                <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50/60">
+                  {scannerError && (
+                    <div className="p-2 mb-1 text-xs text-red-700 bg-red-50 border border-red-200 rounded">
+                      {scannerError}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                      <Input
+                        type="text"
+                        placeholder="Search by name or email..."
+                        value={scannerSearchQuery}
+                        onChange={(e) => setScannerSearchQuery(e.target.value)}
+                        className="pl-7 h-8 text-xs bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white">
+                    {isLoadingScanners ? (
+                      <div className="px-3 py-2 text-[11px] text-gray-500">Loading scanners...</div>
+                    ) : scannerUsers.length === 0 ? (
+                      <div className="px-3 py-2 text-[11px] text-gray-500">
+                        No scanner-capable users found.
+                      </div>
+                    ) : filteredScanners.length === 0 ? (
+                      <div className="px-3 py-2 text-[11px] text-gray-500">
+                        No users match your search.
+                      </div>
+                    ) : (
+                      filteredScanners.slice(0, 50).map((user) => {
+                        const isSelected = selectedScannerIds.has(user.id);
+                        return (
+                          <button
+                            key={user.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedScannerIds((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(user.id)) {
+                                  next.delete(user.id);
+                                } else {
+                                  next.add(user.id);
+                                }
+                                return next;
+                              });
+                            }}
+                            className={cn(
+                              "w-full flex items-center justify-between px-3 py-1.5 text-[11px] text-left hover:bg-emerald-50",
+                              isSelected && "bg-emerald-100 text-emerald-900"
+                            )}
+                          >
+                            <span className="truncate">
+                              {user.fullName}
+                              <span className="ml-1 text-[10px] text-gray-500">({user.email})</span>
+                            </span>
+                            {isSelected && (
+                              <span className="ml-2 text-[10px] text-emerald-700 font-medium">Selected</span>
+                            )}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {selectedScannerIds.size > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {Array.from(selectedScannerIds).map((id) => {
+                        const user = scannerUsers.find((u) => u.id === id);
+                        return (
+                          <Badge
+                            key={id}
+                            variant="secondary"
+                            className="text-[10px] cursor-pointer"
+                            onClick={() => {
+                              setSelectedScannerIds((prev) => {
+                                const next = new Set(prev);
+                                next.delete(id);
+                                return next;
+                              });
+                            }}
+                          >
+                            {user?.fullName ?? id} ×
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <input
+                  type="hidden"
+                  name="scannerConfigJson"
+                  value={buildScannerConfigJson()}
                 />
               </div>
 

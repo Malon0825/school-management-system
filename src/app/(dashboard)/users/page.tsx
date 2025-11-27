@@ -9,7 +9,6 @@ import {
   Shield,
   UserX,
   UserCheck,
-  Mail,
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -46,8 +45,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { useAuth } from "@/shared/hooks/useAuth";
 import type { UserRole } from "@/core/auth/types";
@@ -156,17 +164,21 @@ export default function ManageUsersPage() {
 
   // Dialog states
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [isUpdateRoleDialogOpen, setIsUpdateRoleDialogOpen] = useState(false);
   const [isToggleStatusDialogOpen, setIsToggleStatusDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserListItem | null>(null);
+  const [isCreateSuccessAlertOpen, setIsCreateSuccessAlertOpen] = useState(false);
+  const [lastCreatedUser, setLastCreatedUser] = useState<UserListItem | null>(null);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [isResetResultOpen, setIsResetResultOpen] = useState(false);
+  const [resetTargetUser, setResetTargetUser] = useState<UserListItem | null>(null);
+  const [lastResetPassword, setLastResetPassword] = useState<string | null>(null);
 
   // Form states
   const [createForm, setCreateForm] = useState({
     fullName: "",
     email: "",
     role: "STAFF" as UserRole,
-    sendInvite: true,
   });
   const [updateRoleForm, setUpdateRoleForm] = useState<UserRole>("STAFF");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -175,9 +187,25 @@ export default function ManageUsersPage() {
   const loadUsers = useCallback(async () => {
     setIsLoading(true);
     try {
-      // TODO: Replace with actual API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      setUsers(MOCK_USERS);
+      const response = await fetch("/api/users", {
+        method: "GET",
+      });
+
+      const json = (await response.json().catch(() => null)) as
+        | {
+            success?: boolean;
+            data?: { users?: UserListItem[] };
+            error?: { message?: string };
+          }
+        | null;
+
+      if (!response.ok || !json?.success || !Array.isArray(json.data?.users)) {
+        const message = json?.error?.message || "Failed to load users";
+        toast.error(message);
+        return;
+      }
+
+      setUsers(json.data.users);
     } catch (error) {
       toast.error("Failed to load users");
       console.error(error);
@@ -205,36 +233,56 @@ export default function ManageUsersPage() {
 
   // Handlers
   const handleCreateUser = async () => {
-    if (!createForm.fullName.trim() || !createForm.email.trim()) {
+    const fullName = createForm.fullName.trim();
+    const email = createForm.email.trim().toLowerCase();
+
+    if (!fullName || !email) {
       toast.error("Please fill in all required fields");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // TODO: Replace with actual API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const newUser: UserListItem = {
-        id: String(Date.now()),
-        email: createForm.email,
-        fullName: createForm.fullName,
-        roles: [createForm.role],
-        primaryRole: createForm.role,
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        lastLoginAt: null,
-      };
-
-      setUsers((prev) => [...prev, newUser]);
-      setIsCreateDialogOpen(false);
-      setCreateForm({ fullName: "", email: "", role: "STAFF", sendInvite: true });
-
-      toast.success("User created successfully", {
-        description: createForm.sendInvite
-          ? `An invitation email has been sent to ${createForm.email}`
-          : "User can now sign in with their credentials",
+      const response = await fetch("/api/users", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fullName,
+          email,
+          role: createForm.role,
+        }),
       });
+
+      const json = (await response.json().catch(() => null)) as
+        | {
+            success?: boolean;
+            data?: { user?: UserListItem };
+            error?: { message?: string };
+          }
+        | null;
+
+      if (!response.ok || !json?.success) {
+        const message = json?.error?.message || "Failed to create user";
+        toast.error(message);
+        return;
+      }
+
+      const createdUser = json.data?.user;
+
+      if (createdUser) {
+        setUsers((prev) => [...prev, createdUser]);
+        setLastCreatedUser(createdUser);
+      } else {
+        // Fallback: reload list if payload did not contain the user
+        await loadUsers();
+        setLastCreatedUser(null);
+      }
+
+      setIsCreateDialogOpen(false);
+      setCreateForm({ fullName: "", email: "", role: "STAFF" });
+      setIsCreateSuccessAlertOpen(true);
     } catch (error) {
       toast.error("Failed to create user");
       console.error(error);
@@ -243,25 +291,49 @@ export default function ManageUsersPage() {
     }
   };
 
-  const handleResetPassword = async () => {
-    if (!selectedUser) return;
+  const resetUserPassword = async () => {
+    if (!resetTargetUser) return;
 
     setIsSubmitting(true);
     try {
-      // TODO: Replace with actual API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      setIsResetPasswordDialogOpen(false);
-      toast.success("Password reset email sent", {
-        description: `A password reset link has been sent to ${selectedUser.email}`,
+      const response = await fetch("/api/users/reset-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId: resetTargetUser.id }),
       });
+
+      const json = (await response.json().catch(() => null)) as
+        | {
+            success?: boolean;
+            data?: { password?: string };
+            error?: { message?: string };
+          }
+        | null;
+
+      if (!response.ok || !json?.success || typeof json.data?.password !== "string") {
+        const message = json?.error?.message || "Failed to reset password";
+        toast.error(message);
+        return;
+      }
+
+      const password = json.data.password;
+      setIsResetConfirmOpen(false);
+      setLastResetPassword(password);
+      setIsResetResultOpen(true);
     } catch (error) {
-      toast.error("Failed to send reset email");
+      toast.error("Failed to reset password");
       console.error(error);
     } finally {
       setIsSubmitting(false);
-      setSelectedUser(null);
     }
+  };
+
+  const handleResetPasswordClick = (user: UserListItem) => {
+    setResetTargetUser(user);
+    setLastResetPassword(null);
+    setIsResetConfirmOpen(true);
   };
 
   const handleUpdateRole = async () => {
@@ -296,32 +368,49 @@ export default function ManageUsersPage() {
   const handleToggleUserStatus = async () => {
     if (!selectedUser) return;
 
+    const targetStatus = !selectedUser.isActive;
+
     setIsSubmitting(true);
     try {
-      // TODO: Replace with actual API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const response = await fetch("/api/users/status", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: selectedUser.id,
+          isActive: targetStatus,
+        }),
+      });
 
-      const newStatus = !selectedUser.isActive;
-      setUsers((prev) =>
-        prev.map((u) => (u.id === selectedUser.id ? { ...u, isActive: newStatus } : u))
-      );
+      const json = (await response.json().catch(() => null)) as
+        | {
+            success?: boolean;
+            data?: { user?: UserListItem };
+            error?: { message?: string };
+          }
+        | null;
+
+      if (!response.ok || !json?.success || !json.data?.user) {
+        const message = json?.error?.message || "Failed to update user status";
+        toast.error(message);
+        return;
+      }
+
+      const updatedUser = json.data.user;
+      setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
 
       setIsToggleStatusDialogOpen(false);
-      toast.success(newStatus ? "User enabled" : "User disabled", {
-        description: `${selectedUser.fullName} has been ${newStatus ? "enabled" : "disabled"}`,
+      toast.success(updatedUser.isActive ? "User enabled" : "User disabled", {
+        description: `${updatedUser.fullName} has been ${updatedUser.isActive ? "enabled" : "disabled"}`,
       });
+      setSelectedUser(null);
     } catch (error) {
       toast.error("Failed to update user status");
       console.error(error);
     } finally {
       setIsSubmitting(false);
-      setSelectedUser(null);
     }
-  };
-
-  const openResetPasswordDialog = (user: UserListItem) => {
-    setSelectedUser(user);
-    setIsResetPasswordDialogOpen(true);
   };
 
   const openUpdateRoleDialog = (user: UserListItem) => {
@@ -347,8 +436,8 @@ export default function ManageUsersPage() {
   };
 
   const canManageUser = (user: UserListItem) => {
-    // Super admins can manage everyone except themselves
-    if (isSuperAdmin()) return user.id !== currentUser?.id;
+    // Super admins can see the Actions menu for all users (including themselves)
+    if (isSuperAdmin()) return true;
     // Admins can manage non-admin users
     if (isAdmin()) return !["SUPER_ADMIN", "ADMIN"].includes(user.primaryRole);
     return false;
@@ -411,8 +500,9 @@ export default function ManageUsersPage() {
         </div>
 
         {/* Users Table */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <Table>
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+          <div className="px-4 py-4 sm:px-6">
+            <Table>
             <TableHeader>
               <TableRow className="bg-gray-50/50">
                 <TableHead className="font-semibold text-gray-700">User</TableHead>
@@ -499,7 +589,7 @@ export default function ManageUsersPage() {
                             className="w-48 rounded-lg border border-gray-200 shadow-lg"
                           >
                             <DropdownMenuItem
-                              onClick={() => openResetPasswordDialog(user)}
+                              onClick={() => handleResetPasswordClick(user)}
                               className="gap-2 cursor-pointer text-gray-700 hover:bg-[#1B4D3E]/5 hover:text-[#1B4D3E] focus:bg-[#1B4D3E]/5 focus:text-[#1B4D3E]"
                             >
                               <KeyRound className="w-4 h-4" />
@@ -541,7 +631,8 @@ export default function ManageUsersPage() {
                 ))
               )}
             </TableBody>
-          </Table>
+            </Table>
+          </div>
         </div>
 
         {/* Summary */}
@@ -558,7 +649,7 @@ export default function ManageUsersPage() {
               Create New User
             </DialogTitle>
             <DialogDescription className="text-gray-500">
-              Add a new user to the system. They will receive an email invitation.
+              Add a new user to the system with the selected role.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -618,22 +709,6 @@ export default function ManageUsersPage() {
                 {ROLE_OPTIONS.find((r) => r.value === createForm.role)?.description}
               </p>
             </div>
-            <div className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg border border-gray-100">
-              <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-gray-500" />
-                <Label htmlFor="sendInvite" className="text-sm text-gray-700">
-                  Send email invitation
-                </Label>
-              </div>
-              <Switch
-                id="sendInvite"
-                checked={createForm.sendInvite}
-                onCheckedChange={(checked) =>
-                  setCreateForm((prev) => ({ ...prev, sendInvite: checked }))
-                }
-                className="data-[state=checked]:bg-[#1B4D3E]"
-              />
-            </div>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
@@ -655,56 +730,141 @@ export default function ManageUsersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Reset Password Dialog */}
-      <Dialog open={isResetPasswordDialogOpen} onOpenChange={setIsResetPasswordDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-white rounded-xl border border-gray-200 shadow-xl">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-semibold text-gray-900">
-              Reset Password
-            </DialogTitle>
-            <DialogDescription className="text-gray-500">
-              Send a password reset link to the user&apos;s email address.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedUser && (
-            <div className="py-4">
-              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                <Avatar className="h-10 w-10 border border-gray-200">
-                  <AvatarFallback className="bg-[#1B4D3E] text-white font-semibold">
-                    {selectedUser.fullName.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-medium text-gray-900">{selectedUser.fullName}</p>
-                  <p className="text-sm text-gray-500">{selectedUser.email}</p>
-                </div>
-              </div>
-              <p className="mt-4 text-sm text-gray-600">
-                A password reset email will be sent to{" "}
-                <span className="font-medium text-gray-900">{selectedUser.email}</span>.
-                The link will expire in 24 hours.
-              </p>
+      {/* Create User Success Alert */}
+      <AlertDialog open={isCreateSuccessAlertOpen} onOpenChange={setIsCreateSuccessAlertOpen}>
+        <AlertDialogContent className="sm:max-w-md bg-white rounded-xl border border-gray-200 shadow-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base font-semibold text-gray-900">
+              User created successfully
+            </AlertDialogTitle>
+            <AlertDialogDescription className="mt-1 text-sm text-gray-600">
+              {lastCreatedUser ? (
+                <>
+                  The account for
+                  {" "}
+                  <span className="font-medium text-gray-900">
+                    {lastCreatedUser.fullName}
+                  </span>
+                  {" ("}
+                  <span className="font-mono text-gray-900">{lastCreatedUser.email}</span>
+                  {") "}
+                  has been created.
+                </>
+              ) : (
+                <>The new user account has been created.</>
+              )}
+            </AlertDialogDescription>
+            <AlertDialogDescription className="mt-3 text-sm text-gray-600">
+              To share their login details, open the
+              {" "}
+              <span className="font-medium text-gray-900">Actions</span>
+              {" "}
+              menu for this user, choose
+              {" "}
+              <span className="font-medium text-gray-900">Reset Password</span>, then copy
+              the one-time password and send it to them through a secure channel.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-6">
+            <AlertDialogAction
+              className="inline-flex items-center justify-center rounded-md bg-[#1B4D3E] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1B4D3E]/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4D3E] focus-visible:ring-offset-2"
+            >
+              Got it
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset Password Confirm Alert */}
+      <AlertDialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}>
+        <AlertDialogContent className="sm:max-w-md bg-white rounded-xl border border-gray-200 shadow-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base font-semibold text-gray-900">
+              Reset password?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="mt-1 text-sm text-gray-600">
+              {resetTargetUser ? (
+                <>
+                  This will generate a new password for
+                  {" "}
+                  <span className="font-medium text-gray-900">
+                    {resetTargetUser.fullName}
+                  </span>
+                  . Their existing password will no longer work.
+                </>
+              ) : (
+                <>This will generate a new password for the selected user.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-6">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                void resetUserPassword();
+              }}
+              disabled={isSubmitting}
+              className="inline-flex items-center justify-center rounded-md bg-[#1B4D3E] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1B4D3E]/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4D3E] focus-visible:ring-offset-2"
+            >
+              {isSubmitting ? "Resetting..." : "Reset password"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset Password Result Alert */}
+      <AlertDialog open={isResetResultOpen} onOpenChange={setIsResetResultOpen}>
+        <AlertDialogContent className="sm:max-w-md bg-white rounded-xl border border-gray-200 shadow-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base font-semibold text-gray-900">
+              New password generated
+            </AlertDialogTitle>
+            <AlertDialogDescription className="mt-1 text-sm text-gray-600">
+              {resetTargetUser ? (
+                <>
+                  Share this password securely with
+                  {" "}
+                  <span className="font-medium text-gray-900">
+                    {resetTargetUser.fullName}
+                  </span>
+                  . It will not be shown again here.
+                </>
+              ) : (
+                <>Share this password securely with the user. It will not be shown again.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {lastResetPassword && (
+            <div className="mt-4 flex items-center gap-2">
+              <code className="flex-1 rounded-md bg-gray-100 px-2 py-1 text-sm text-gray-900 break-all">
+                {lastResetPassword}
+              </code>
+              <Button
+                size="sm"
+                className="bg-[#1B4D3E] hover:bg-[#1B4D3E]/90 text-white"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(lastResetPassword);
+                    toast.success("Password copied to clipboard");
+                  } catch (err) {
+                    console.error(err);
+                    toast.error("Failed to copy password");
+                  }
+                }}
+              >
+                Copy
+              </Button>
             </div>
           )}
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => setIsResetPasswordDialogOpen(false)}
-              className="border-gray-200 text-gray-700 hover:bg-gray-50"
+          <AlertDialogFooter className="mt-6">
+            <AlertDialogAction
+              className="inline-flex items-center justify-center rounded-md bg-[#1B4D3E] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1B4D3E]/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4D3E] focus-visible:ring-offset-2"
             >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleResetPassword}
-              disabled={isSubmitting}
-              className="bg-[#1B4D3E] hover:bg-[#1B4D3E]/90 text-white gap-2"
-            >
-              {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-              Send Reset Link
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              Close
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Update Role Dialog */}
       <Dialog open={isUpdateRoleDialogOpen} onOpenChange={setIsUpdateRoleDialogOpen}>
@@ -825,7 +985,7 @@ export default function ManageUsersPage() {
               )}
             </div>
           )}
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-3 sm:flex-row sm:justify-end sm:gap-4">
             <Button
               variant="outline"
               onClick={() => setIsToggleStatusDialogOpen(false)}

@@ -17,6 +17,7 @@ import type {
   EventDto,
   EventAudienceConfig,
   EventSessionConfig,
+  EventScannerConfig,
 } from "../domain";
 
 /**
@@ -32,6 +33,7 @@ interface EventWithFacilityRow {
   facility_id: string | null;
   target_audience: EventAudienceConfig;
   session_config: EventSessionConfig;
+  scanner_assignments: EventScannerConfig;
   created_by: string | null;
   created_at: string;
   updated_by: string | null;
@@ -65,6 +67,7 @@ function mapRowToDto(row: EventWithFacilityRow): EventDto {
       : null,
     audienceConfig: row.target_audience,
     sessionConfig: row.session_config,
+    scannerConfig: row.scanner_assignments,
     createdBy: row.created_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -98,6 +101,7 @@ export class EventRepository implements IEventRepository {
       facility_id: dto.facilityId ?? null,
       target_audience: dto.audienceConfig,
       session_config: dto.sessionConfig,
+      scanner_assignments: dto.scannerConfig,
       created_by: createdBy,
     };
 
@@ -115,6 +119,7 @@ export class EventRepository implements IEventRepository {
         facility_id,
         target_audience,
         session_config,
+        scanner_assignments,
         created_by,
         created_at,
         updated_by,
@@ -171,6 +176,9 @@ export class EventRepository implements IEventRepository {
     if (dto.sessionConfig !== undefined) {
       updatePayload.session_config = dto.sessionConfig;
     }
+    if (dto.scannerConfig !== undefined) {
+      updatePayload.scanner_assignments = dto.scannerConfig;
+    }
 
     const { data, error } = await this.supabase
       .from("events")
@@ -187,6 +195,7 @@ export class EventRepository implements IEventRepository {
         facility_id,
         target_audience,
         session_config,
+        scanner_assignments,
         created_by,
         created_at,
         updated_by,
@@ -230,6 +239,7 @@ export class EventRepository implements IEventRepository {
         facility_id,
         target_audience,
         session_config,
+        scanner_assignments,
         created_by,
         created_at,
         updated_by,
@@ -271,6 +281,7 @@ export class EventRepository implements IEventRepository {
         facility_id,
         target_audience,
         session_config,
+        scanner_assignments,
         created_by,
         created_at,
         updated_by,
@@ -355,6 +366,7 @@ export class EventRepository implements IEventRepository {
         facility_id,
         target_audience,
         session_config,
+        scanner_assignments,
         created_by,
         created_at,
         updated_by,
