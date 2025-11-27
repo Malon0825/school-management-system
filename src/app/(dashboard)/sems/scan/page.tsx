@@ -76,6 +76,7 @@ export default function ScannerEventsPage() {
   const [searchInput, setSearchInput] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [downloadingEventId, setDownloadingEventId] = useState<string | null>(null);
+  const [uploadingEventId, setUploadingEventId] = useState<string | null>(null);
 
   const loadEvents = useCallback(async () => {
     setLoading(true);
@@ -257,6 +258,128 @@ export default function ScannerEventsPage() {
       }
     },
     []
+  );
+
+  const handleUploadEventData = useCallback(
+    async (eventItem: ScannerEventItem) => {
+      setUploadingEventId(eventItem.id);
+
+      try {
+        // Get pending scans from IndexedDB for this event
+        const pendingScans = await scannerDb.scanQueue
+          .where("eventId")
+          .equals(eventItem.id)
+          .and((scan) => scan.syncStatus === "pending")
+          .toArray();
+
+        if (pendingScans.length === 0) {
+          toast.info("No pending scans", {
+            description: "All scans for this event have already been uploaded.",
+          });
+          return;
+        }
+
+        // Get the cached event to retrieve session config for enriching scans
+        const cachedEvent = await scannerDb.scannerEvents.get(eventItem.id);
+        const sessionConfig = cachedEvent?.sessionConfig;
+
+        // Build session lookup map from sessionConfig
+        const sessionMap = new Map<string, {
+          period: string;
+          opens: string;
+          closes: string;
+          lateAfter: string | null;
+        }>();
+
+        if (sessionConfig?.dates) {
+          for (const dateConfig of sessionConfig.dates) {
+            for (const session of dateConfig.sessions ?? []) {
+              sessionMap.set(session.id, {
+                period: session.period,
+                opens: session.opens,
+                closes: session.closes,
+                lateAfter: session.lateAfter,
+              });
+            }
+          }
+        }
+
+        // Prepare scans for upload with enriched session info
+        const scansToUpload = pendingScans.map((scan) => {
+          const sessionInfo = scan.sessionId ? sessionMap.get(scan.sessionId) : null;
+          return {
+            id: scan.id,
+            studentId: scan.studentId,
+            qrHash: scan.qrHash,
+            scannedAt: scan.scannedAt,
+            status: scan.status,
+            reason: scan.reason,
+            sessionId: scan.sessionId,
+            sessionName: scan.sessionName,
+            sessionDirection: scan.sessionDirection,
+            sessionPeriod: sessionInfo?.period ?? null,
+            sessionOpens: sessionInfo?.opens ?? null,
+            sessionCloses: sessionInfo?.closes ?? null,
+            sessionLateAfter: sessionInfo?.lateAfter ?? null,
+          };
+        });
+
+        // Upload to server
+        const response = await fetch(`/api/sems/events/${eventItem.id}/scans`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ scans: scansToUpload }),
+        });
+
+        let body: any = null;
+        try {
+          body = await response.json();
+        } catch {
+          body = null;
+        }
+
+        if (!response.ok || body?.success === false) {
+          const message =
+            body?.error?.message ??
+            `Failed to upload scan data (status ${response.status}).`;
+          toast.error(message);
+          return;
+        }
+
+        const result = body?.data ?? body;
+        const uploadedIds = (result?.uploadedScanIds ?? []) as string[];
+
+        // Mark uploaded scans as synced in IndexedDB
+        if (uploadedIds.length > 0) {
+          await scannerDb.transaction("rw", scannerDb.scanQueue, async () => {
+            for (const scanId of uploadedIds) {
+              await scannerDb.scanQueue.update(scanId, { syncStatus: "synced" });
+            }
+          });
+        }
+
+        // Show success message
+        const uploaded = result?.uploaded ?? 0;
+        const duplicates = result?.duplicates ?? 0;
+        const skipped = result?.skipped ?? 0;
+
+        toast.success("Scans uploaded", {
+          description: `${uploaded} uploaded, ${duplicates} duplicates, ${skipped} skipped.`,
+        });
+
+        // Refresh the events list to show updated attendance
+        void loadEvents();
+      } catch (uploadError) {
+        // eslint-disable-next-line no-console
+        console.error("[ScannerEventsPage] Failed to upload scan data", uploadError);
+        toast.error("Unable to upload scan data. Please try again.");
+      } finally {
+        setUploadingEventId(null);
+      }
+    },
+    [loadEvents]
   );
 
   return (
@@ -528,9 +651,16 @@ export default function ScannerEventsPage() {
                               <Download className="h-4 w-4" />
                               Download data
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2 text-sm text-gray-700 cursor-pointer">
+                            <DropdownMenuItem
+                              className="gap-2 text-sm text-gray-700 cursor-pointer"
+                              disabled={uploadingEventId === event.id}
+                              onClick={(menuEvent) => {
+                                menuEvent.stopPropagation();
+                                void handleUploadEventData(event);
+                              }}
+                            >
                               <Upload className="h-4 w-4" />
-                              Upload data
+                              {uploadingEventId === event.id ? "Uploading..." : "Upload data"}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

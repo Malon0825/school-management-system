@@ -23,6 +23,10 @@ import {
   type ScanQueueRecord,
   type ScanStatus,
 } from "@/core/offline/scanner-db";
+import {
+  findActiveSession,
+  isLateForSession,
+} from "@/core/offline/scanner-session-utils";
 import { BrowserQRCodeReader } from "@zxing/browser";
 
 // Mock event data
@@ -162,13 +166,7 @@ export default function EventScannerPage() {
     return "not_allowed";
   }
 
-  function buildScanMessage(status: ScanStatus, baseReason: string | null | undefined): string {
-    if (baseReason && baseReason.trim().length > 0) return baseReason;
-    if (status === "PRESENT") return "Check-in recorded";
-    if (status === "LATE") return "Marked as late";
-    if (status === "DUPLICATE") return "Already scanned for this event";
-    return "Scan not allowed for this event";
-  }
+  // buildScanMessage is now handled by buildSessionScanMessage from scanner-session-utils
 
   function formatScanTimeLabel(iso: string): string {
     const date = new Date(iso);
@@ -186,37 +184,58 @@ export default function EventScannerPage() {
     let scanStatus: ScanStatus;
     let reason: string | null = null;
     let studentRecord: AllowedStudentRecord | null = null;
+    let activeSessionId: string | null = null;
+    let activeSessionName: string | null = null;
+    let activeSessionDirection: "in" | "out" | null = null;
 
     // Query IndexedDB directly to avoid stale closure issues with React state
     const currentEventRecord = eventRecord ?? (await scannerDb.scannerEvents.get(eventId));
 
     if (!currentEventRecord) {
       scanStatus = "DENIED";
-      reason = "Scanner resources are not available on this device.";
+      reason = "Please download event data first.";
     } else {
-      const lookupResult = await scannerDb.allowedStudents
-        .where("[eventId+qrHash]")
-        .equals([eventId, trimmed])
-        .first();
+      // Step 1: Find the active session based on current device time and date
+      const sessionResult = findActiveSession(currentEventRecord.sessionConfig);
 
-      studentRecord = lookupResult ?? null;
-
-      if (!studentRecord) {
+      if (!sessionResult.isActive || !sessionResult.session) {
+        // No active session right now
         scanStatus = "DENIED";
-        reason = "Student is not in the allowed list for this event.";
+        reason = sessionResult.reason ?? "Scanning is not open at this time.";
       } else {
-        const existing = await scannerDb.scanQueue
-          .where("eventId")
-          .equals(eventId)
-          .and((row: ScanQueueRecord) => row.studentId === studentRecord!.studentId)
+        // We have an active session
+        const activeSession = sessionResult.session;
+        activeSessionId = activeSession.id;
+        activeSessionName = activeSession.name;
+        activeSessionDirection = activeSession.direction;
+
+        // Step 2: Look up the student
+        const lookupResult = await scannerDb.allowedStudents
+          .where("[eventId+qrHash]")
+          .equals([eventId, trimmed])
           .first();
 
-        if (existing) {
-          scanStatus = "DUPLICATE";
-          reason = "Already scanned for this event.";
+        studentRecord = lookupResult ?? null;
+
+        if (!studentRecord) {
+          scanStatus = "DENIED";
+          reason = "This student is not registered for this event.";
         } else {
-          scanStatus = "PRESENT";
-          reason = null;
+          // Step 3: Check if student already scanned for THIS SESSION (not just the event)
+          const existingForSession = await scannerDb.scanQueue
+            .where("[eventId+sessionId+studentId]")
+            .equals([eventId, activeSessionId, studentRecord.studentId])
+            .first();
+
+          if (existingForSession) {
+            scanStatus = "DUPLICATE";
+            reason = `Already scanned for ${activeSessionName}.`;
+          } else {
+            // Step 4: Determine PRESENT vs LATE based on session's lateAfter threshold
+            const isLate = isLateForSession(activeSession);
+            scanStatus = isLate ? "LATE" : "PRESENT";
+            reason = null;
+          }
         }
       }
     }
@@ -237,15 +256,21 @@ export default function EventScannerPage() {
       scannedAt: nowIso,
       status: scanStatus,
       reason,
-      sessionId: null,
-      sessionName: null,
-      sessionDirection: null,
+      sessionId: activeSessionId,
+      sessionName: activeSessionName,
+      sessionDirection: activeSessionDirection,
       syncStatus: "pending",
       createdAt: nowIso,
     });
 
     const uiStatus = mapScanStatusToUiStatus(scanStatus);
-    const message = buildScanMessage(scanStatus, reason);
+    // Build user-friendly message based on status and session
+    const message = reason ?? (
+      scanStatus === "PRESENT" ? (activeSessionName ? `On time for ${activeSessionName}` : "On time") :
+      scanStatus === "LATE" ? (activeSessionName ? `Late for ${activeSessionName}` : "Late") :
+      scanStatus === "DUPLICATE" ? (activeSessionName ? `Already scanned for ${activeSessionName}` : "Already scanned") :
+      "Can't scan this student."
+    );
     const timeLabel = formatScanTimeLabel(nowIso);
 
     setLastScan({

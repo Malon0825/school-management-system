@@ -444,19 +444,19 @@ export default function ManageUsersPage() {
   };
 
   return (
-    <div className="flex-1 overflow-auto bg-gradient-to-br from-[#F9FAFB] via-[#FDFBF7] to-[#F3F4F6]">
+    <div className="flex-1 overflow-auto bg-gradient-to-br from-background via-background to-muted/30">
       <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Manage Users</h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <h1 className="text-2xl font-bold text-foreground">Manage Users</h1>
+            <p className="text-sm text-muted-foreground mt-1">
               Create, update, and manage user accounts and permissions
             </p>
           </div>
           <Button
             onClick={() => setIsCreateDialogOpen(true)}
-            className="bg-[#1B4D3E] hover:bg-[#1B4D3E]/90 text-white gap-2"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
           >
             <Plus className="w-4 h-4" />
             Add User
@@ -466,16 +466,16 @@ export default function ManageUsersPage() {
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/70" />
             <Input
               placeholder="Search by name or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 bg-white border-gray-200 focus:border-[#1B4D3E] focus:ring-[#1B4D3E]/20"
+              className="pl-9 bg-card border-border focus:border-primary focus:ring-primary/20"
             />
           </div>
           <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="w-full sm:w-[160px] bg-white border-gray-200">
+            <SelectTrigger className="w-full sm:w-[160px] bg-card border-border">
               <SelectValue placeholder="All Roles" />
             </SelectTrigger>
             <SelectContent>
@@ -488,7 +488,7 @@ export default function ManageUsersPage() {
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[140px] bg-white border-gray-200">
+            <SelectTrigger className="w-full sm:w-[140px] bg-card border-border">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
@@ -500,18 +500,18 @@ export default function ManageUsersPage() {
         </div>
 
         {/* Users Table */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+        <div className="bg-card rounded-xl border border-border shadow-sm">
           <div className="px-4 py-4 sm:px-6">
             <Table>
             <TableHeader>
-              <TableRow className="bg-gray-50/50">
-                <TableHead className="font-semibold text-gray-700">User</TableHead>
-                <TableHead className="font-semibold text-gray-700">Role</TableHead>
-                <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                <TableHead className="font-semibold text-gray-700 hidden md:table-cell">
+              <TableRow className="bg-muted">
+                <TableHead className="font-semibold text-foreground">User</TableHead>
+                <TableHead className="font-semibold text-foreground">Role</TableHead>
+                <TableHead className="font-semibold text-foreground">Status</TableHead>
+                <TableHead className="font-semibold text-foreground hidden md:table-cell">
                   Last Login
                 </TableHead>
-                <TableHead className="font-semibold text-gray-700 w-[60px]">
+                <TableHead className="font-semibold text-foreground w-[60px]">
                   Actions
                 </TableHead>
               </TableRow>
@@ -520,7 +520,7 @@ export default function ManageUsersPage() {
               {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-12">
-                    <div className="flex items-center justify-center gap-2 text-gray-500">
+                    <div className="flex items-center justify-center gap-2 text-muted-foreground">
                       <Loader2 className="w-5 h-5 animate-spin" />
                       <span>Loading users...</span>
                     </div>
@@ -529,25 +529,25 @@ export default function ManageUsersPage() {
               ) : filteredUsers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-12">
-                    <p className="text-gray-500">No users found</p>
+                    <p className="text-muted-foreground">No users found</p>
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredUsers.map((user) => (
-                  <TableRow key={user.id} className="hover:bg-gray-50/50">
+                  <TableRow key={user.id} className="hover:bg-accent">
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9 border border-gray-200">
+                        <Avatar className="h-9 w-9 border border-border">
                           <AvatarImage src={undefined} alt={user.fullName} />
-                          <AvatarFallback className="bg-[#1B4D3E] text-white text-sm font-semibold">
+                          <AvatarFallback className="bg-primary text-primary-foreground text-sm font-semibold">
                             {user.fullName.charAt(0).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
-                          <p className="font-medium text-gray-900 truncate">
+                          <p className="font-medium text-foreground truncate">
                             {user.fullName}
                           </p>
-                          <p className="text-sm text-gray-500 truncate">{user.email}</p>
+                          <p className="text-sm text-muted-foreground truncate">{user.email}</p>
                         </div>
                       </div>
                     </TableCell>
@@ -569,7 +569,7 @@ export default function ManageUsersPage() {
                         {user.isActive ? "Active" : "Inactive"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell text-sm text-gray-600">
+                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
                       {formatDate(user.lastLoginAt)}
                     </TableCell>
                     <TableCell>
@@ -579,30 +579,30 @@ export default function ManageUsersPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent"
                             >
                               <MoreHorizontal className="w-4 h-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent
                             align="end"
-                            className="w-48 rounded-lg border border-gray-200 shadow-lg"
+                            className="w-48 rounded-lg border border-border bg-popover shadow-lg"
                           >
                             <DropdownMenuItem
                               onClick={() => handleResetPasswordClick(user)}
-                              className="gap-2 cursor-pointer text-gray-700 hover:bg-[#1B4D3E]/5 hover:text-[#1B4D3E] focus:bg-[#1B4D3E]/5 focus:text-[#1B4D3E]"
+                              className="gap-2 cursor-pointer text-foreground hover:bg-primary/5 hover:text-primary focus:bg-primary/5 focus:text-primary"
                             >
                               <KeyRound className="w-4 h-4" />
                               Reset Password
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => openUpdateRoleDialog(user)}
-                              className="gap-2 cursor-pointer text-gray-700 hover:bg-[#1B4D3E]/5 hover:text-[#1B4D3E] focus:bg-[#1B4D3E]/5 focus:text-[#1B4D3E]"
+                              className="gap-2 cursor-pointer text-foreground hover:bg-primary/5 hover:text-primary focus:bg-primary/5 focus:text-primary"
                             >
                               <Shield className="w-4 h-4" />
                               Update Role
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator className="bg-gray-100" />
+                            <DropdownMenuSeparator className="bg-border" />
                             <DropdownMenuItem
                               onClick={() => openToggleStatusDialog(user)}
                               className={`gap-2 cursor-pointer ${
@@ -636,25 +636,25 @@ export default function ManageUsersPage() {
         </div>
 
         {/* Summary */}
-        <div className="text-sm text-gray-500">
+        <div className="text-sm text-muted-foreground">
           Showing {filteredUsers.length} of {users.length} users
         </div>
       </div>
 
       {/* Create User Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-white rounded-xl border border-gray-200 shadow-xl">
+        <DialogContent className="sm:max-w-md bg-card rounded-xl border border-border shadow-xl">
           <DialogHeader>
-            <DialogTitle className="text-xl font-semibold text-gray-900">
+            <DialogTitle className="text-xl font-semibold text-foreground">
               Create New User
             </DialogTitle>
-            <DialogDescription className="text-gray-500">
+            <DialogDescription className="text-muted-foreground">
               Add a new user to the system with the selected role.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="fullName" className="text-sm font-medium text-gray-700">
+              <Label htmlFor="fullName" className="text-sm font-medium text-muted-foreground">
                 Full Name <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -664,11 +664,11 @@ export default function ManageUsersPage() {
                 onChange={(e) =>
                   setCreateForm((prev) => ({ ...prev, fullName: e.target.value }))
                 }
-                className="border-gray-200 focus:border-[#1B4D3E] focus:ring-[#1B4D3E]/20"
+                className="border-border focus:border-primary focus:ring-primary/20"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+              <Label htmlFor="email" className="text-sm font-medium text-muted-foreground">
                 Email Address <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -679,11 +679,11 @@ export default function ManageUsersPage() {
                 onChange={(e) =>
                   setCreateForm((prev) => ({ ...prev, email: e.target.value }))
                 }
-                className="border-gray-200 focus:border-[#1B4D3E] focus:ring-[#1B4D3E]/20"
+                className="border-border focus:border-primary focus:ring-primary/20"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="role" className="text-sm font-medium text-gray-700">
+              <Label htmlFor="role" className="text-sm font-medium text-muted-foreground">
                 Role <span className="text-red-500">*</span>
               </Label>
               <Select
@@ -692,7 +692,7 @@ export default function ManageUsersPage() {
                   setCreateForm((prev) => ({ ...prev, role: value }))
                 }
               >
-                <SelectTrigger className="border-gray-200 focus:border-[#1B4D3E] focus:ring-[#1B4D3E]/20">
+                <SelectTrigger className="border-border focus:border-primary focus:ring-primary/20">
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -705,7 +705,7 @@ export default function ManageUsersPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 {ROLE_OPTIONS.find((r) => r.value === createForm.role)?.description}
               </p>
             </div>
@@ -714,14 +714,14 @@ export default function ManageUsersPage() {
             <Button
               variant="outline"
               onClick={() => setIsCreateDialogOpen(false)}
-              className="border-gray-200 text-gray-700 hover:bg-gray-50"
+              className="border-border text-muted-foreground hover:bg-accent"
             >
               Cancel
             </Button>
             <Button
               onClick={handleCreateUser}
               disabled={isSubmitting}
-              className="bg-[#1B4D3E] hover:bg-[#1B4D3E]/90 text-white gap-2"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
             >
               {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
               Create User
@@ -732,21 +732,21 @@ export default function ManageUsersPage() {
 
       {/* Create User Success Alert */}
       <AlertDialog open={isCreateSuccessAlertOpen} onOpenChange={setIsCreateSuccessAlertOpen}>
-        <AlertDialogContent className="sm:max-w-md bg-white rounded-xl border border-gray-200 shadow-xl">
+        <AlertDialogContent className="sm:max-w-md bg-card rounded-xl border border-border shadow-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-base font-semibold text-gray-900">
+            <AlertDialogTitle className="text-base font-semibold text-foreground">
               User created successfully
             </AlertDialogTitle>
-            <AlertDialogDescription className="mt-1 text-sm text-gray-600">
+            <AlertDialogDescription className="mt-1 text-sm text-muted-foreground">
               {lastCreatedUser ? (
                 <>
                   The account for
                   {" "}
-                  <span className="font-medium text-gray-900">
+                  <span className="font-medium text-foreground">
                     {lastCreatedUser.fullName}
                   </span>
                   {" ("}
-                  <span className="font-mono text-gray-900">{lastCreatedUser.email}</span>
+                  <span className="font-mono text-foreground">{lastCreatedUser.email}</span>
                   {") "}
                   has been created.
                 </>
@@ -754,20 +754,20 @@ export default function ManageUsersPage() {
                 <>The new user account has been created.</>
               )}
             </AlertDialogDescription>
-            <AlertDialogDescription className="mt-3 text-sm text-gray-600">
+            <AlertDialogDescription className="mt-3 text-sm text-muted-foreground">
               To share their login details, open the
               {" "}
-              <span className="font-medium text-gray-900">Actions</span>
+              <span className="font-medium text-foreground">Actions</span>
               {" "}
               menu for this user, choose
               {" "}
-              <span className="font-medium text-gray-900">Reset Password</span>, then copy
+              <span className="font-medium text-foreground">Reset Password</span>, then copy
               the one-time password and send it to them through a secure channel.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-6">
             <AlertDialogAction
-              className="inline-flex items-center justify-center rounded-md bg-[#1B4D3E] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1B4D3E]/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4D3E] focus-visible:ring-offset-2"
+              className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               Got it
             </AlertDialogAction>
@@ -777,17 +777,17 @@ export default function ManageUsersPage() {
 
       {/* Reset Password Confirm Alert */}
       <AlertDialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}>
-        <AlertDialogContent className="sm:max-w-md bg-white rounded-xl border border-gray-200 shadow-xl">
+        <AlertDialogContent className="sm:max-w-md bg-card rounded-xl border border-border shadow-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-base font-semibold text-gray-900">
+            <AlertDialogTitle className="text-base font-semibold text-foreground">
               Reset password?
             </AlertDialogTitle>
-            <AlertDialogDescription className="mt-1 text-sm text-gray-600">
+            <AlertDialogDescription className="mt-1 text-sm text-muted-foreground">
               {resetTargetUser ? (
                 <>
                   This will generate a new password for
                   {" "}
-                  <span className="font-medium text-gray-900">
+                  <span className="font-medium text-foreground">
                     {resetTargetUser.fullName}
                   </span>
                   . Their existing password will no longer work.
@@ -804,7 +804,7 @@ export default function ManageUsersPage() {
                 void resetUserPassword();
               }}
               disabled={isSubmitting}
-              className="inline-flex items-center justify-center rounded-md bg-[#1B4D3E] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1B4D3E]/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4D3E] focus-visible:ring-offset-2"
+              className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               {isSubmitting ? "Resetting..." : "Reset password"}
             </AlertDialogAction>
@@ -814,12 +814,12 @@ export default function ManageUsersPage() {
 
       {/* Reset Password Result Alert */}
       <AlertDialog open={isResetResultOpen} onOpenChange={setIsResetResultOpen}>
-        <AlertDialogContent className="sm:max-w-md bg-white rounded-xl border border-gray-200 shadow-xl">
+        <AlertDialogContent className="sm:max-w-md bg-card rounded-xl border border-border shadow-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-base font-semibold text-gray-900">
+            <AlertDialogTitle className="text-base font-semibold text-foreground">
               New password generated
             </AlertDialogTitle>
-            <AlertDialogDescription className="mt-1 text-sm text-gray-600">
+            <AlertDialogDescription className="mt-1 text-sm text-muted-foreground">
               {resetTargetUser ? (
                 <>
                   Share this password securely with
@@ -836,12 +836,12 @@ export default function ManageUsersPage() {
           </AlertDialogHeader>
           {lastResetPassword && (
             <div className="mt-4 flex items-center gap-2">
-              <code className="flex-1 rounded-md bg-gray-100 px-2 py-1 text-sm text-gray-900 break-all">
+              <code className="flex-1 rounded-md bg-muted px-2 py-1 text-sm text-foreground break-all">
                 {lastResetPassword}
               </code>
               <Button
                 size="sm"
-                className="bg-[#1B4D3E] hover:bg-[#1B4D3E]/90 text-white"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
                 onClick={async () => {
                   try {
                     await navigator.clipboard.writeText(lastResetPassword);
@@ -858,7 +858,7 @@ export default function ManageUsersPage() {
           )}
           <AlertDialogFooter className="mt-6">
             <AlertDialogAction
-              className="inline-flex items-center justify-center rounded-md bg-[#1B4D3E] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1B4D3E]/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4D3E] focus-visible:ring-offset-2"
+              className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               Close
             </AlertDialogAction>
@@ -868,30 +868,30 @@ export default function ManageUsersPage() {
 
       {/* Update Role Dialog */}
       <Dialog open={isUpdateRoleDialogOpen} onOpenChange={setIsUpdateRoleDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-white rounded-xl border border-gray-200 shadow-xl">
+        <DialogContent className="sm:max-w-md bg-card rounded-xl border border-border shadow-xl">
           <DialogHeader>
-            <DialogTitle className="text-xl font-semibold text-gray-900">
+            <DialogTitle className="text-xl font-semibold text-foreground">
               Update User Role
             </DialogTitle>
-            <DialogDescription className="text-gray-500">
+            <DialogDescription className="text-muted-foreground">
               Change the role and permissions for this user.
             </DialogDescription>
           </DialogHeader>
           {selectedUser && (
             <div className="space-y-4 py-4">
-              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                <Avatar className="h-10 w-10 border border-gray-200">
-                  <AvatarFallback className="bg-[#1B4D3E] text-white font-semibold">
+              <div className="flex items-center gap-3 p-4 bg-muted rounded-lg border border-border/50">
+                <Avatar className="h-10 w-10 border border-border">
+                  <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
                     {selectedUser.fullName.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="font-medium text-gray-900">{selectedUser.fullName}</p>
-                  <p className="text-sm text-gray-500">{selectedUser.email}</p>
+                  <p className="font-medium text-foreground">{selectedUser.fullName}</p>
+                  <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-sm font-medium text-gray-700">
+                <Label className="text-sm font-medium text-muted-foreground">
                   Current Role
                 </Label>
                 <Badge className={`${ROLE_BADGE_STYLES[selectedUser.primaryRole]}`}>
@@ -899,11 +899,11 @@ export default function ManageUsersPage() {
                 </Badge>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="newRole" className="text-sm font-medium text-gray-700">
+                <Label htmlFor="newRole" className="text-sm font-medium text-muted-foreground">
                   New Role
                 </Label>
                 <Select value={updateRoleForm} onValueChange={(v: UserRole) => setUpdateRoleForm(v)}>
-                  <SelectTrigger className="border-gray-200 focus:border-[#1B4D3E] focus:ring-[#1B4D3E]/20">
+                  <SelectTrigger className="border-border focus:border-primary focus:ring-primary/20">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -914,7 +914,7 @@ export default function ManageUsersPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   {ROLE_OPTIONS.find((r) => r.value === updateRoleForm)?.description}
                 </p>
               </div>
@@ -924,14 +924,14 @@ export default function ManageUsersPage() {
             <Button
               variant="outline"
               onClick={() => setIsUpdateRoleDialogOpen(false)}
-              className="border-gray-200 text-gray-700 hover:bg-gray-50"
+              className="border-border text-muted-foreground hover:bg-accent"
             >
               Cancel
             </Button>
             <Button
               onClick={handleUpdateRole}
               disabled={isSubmitting || updateRoleForm === selectedUser?.primaryRole}
-              className="bg-[#1B4D3E] hover:bg-[#1B4D3E]/90 text-white gap-2"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
             >
               {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
               Update Role
@@ -942,12 +942,12 @@ export default function ManageUsersPage() {
 
       {/* Toggle Status Dialog */}
       <Dialog open={isToggleStatusDialogOpen} onOpenChange={setIsToggleStatusDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-white rounded-xl border border-gray-200 shadow-xl">
+        <DialogContent className="sm:max-w-md bg-card rounded-xl border border-border shadow-xl">
           <DialogHeader>
-            <DialogTitle className="text-xl font-semibold text-gray-900">
+            <DialogTitle className="text-xl font-semibold text-foreground">
               {selectedUser?.isActive ? "Disable User" : "Enable User"}
             </DialogTitle>
-            <DialogDescription className="text-gray-500">
+            <DialogDescription className="text-muted-foreground">
               {selectedUser?.isActive
                 ? "This user will no longer be able to access the system."
                 : "This user will regain access to the system."}
@@ -955,15 +955,15 @@ export default function ManageUsersPage() {
           </DialogHeader>
           {selectedUser && (
             <div className="py-4">
-              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                <Avatar className="h-10 w-10 border border-gray-200">
-                  <AvatarFallback className="bg-[#1B4D3E] text-white font-semibold">
+              <div className="flex items-center gap-3 p-4 bg-muted rounded-lg border border-border/50">
+                <Avatar className="h-10 w-10 border border-border">
+                  <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
                     {selectedUser.fullName.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="font-medium text-gray-900">{selectedUser.fullName}</p>
-                  <p className="text-sm text-gray-500">{selectedUser.email}</p>
+                  <p className="font-medium text-foreground">{selectedUser.fullName}</p>
+                  <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
                 </div>
                 <Badge
                   className={`ml-auto ${
@@ -989,7 +989,7 @@ export default function ManageUsersPage() {
             <Button
               variant="outline"
               onClick={() => setIsToggleStatusDialogOpen(false)}
-              className="border-gray-200 text-gray-700 hover:bg-gray-50"
+              className="border-border text-muted-foreground hover:bg-accent"
             >
               Cancel
             </Button>
@@ -998,8 +998,8 @@ export default function ManageUsersPage() {
               disabled={isSubmitting}
               className={
                 selectedUser?.isActive
-                  ? "bg-red-600 hover:bg-red-700 text-white gap-2"
-                  : "bg-green-600 hover:bg-green-700 text-white gap-2"
+                  ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground gap-2"
+                  : "bg-emerald-600 hover:bg-emerald-700 text-emerald-50 gap-2"
               }
             >
               {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}

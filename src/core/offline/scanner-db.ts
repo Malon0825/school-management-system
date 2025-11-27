@@ -49,11 +49,22 @@ class ScannerDb extends Dexie {
   constructor() {
     super("semsScanner");
 
+    // Version 1: Initial schema
     this.version(1).stores({
       scannerEvents: "id, startDate, endDate, scannerUserId",
       allowedStudents:
         "++id, eventId, studentId, qrHash, [eventId+qrHash], [eventId+studentId]",
       scanQueue: "id, eventId, studentId, qrHash, scannedAt, syncStatus",
+    });
+
+    // Version 2: Add compound index for session-based duplicate checking
+    // This allows efficient queries like: "has this student scanned for this session?"
+    this.version(2).stores({
+      scannerEvents: "id, startDate, endDate, scannerUserId",
+      allowedStudents:
+        "++id, eventId, studentId, qrHash, [eventId+qrHash], [eventId+studentId]",
+      scanQueue:
+        "id, eventId, studentId, qrHash, scannedAt, syncStatus, sessionId, [eventId+sessionId+studentId]",
     });
   }
 }

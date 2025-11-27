@@ -928,8 +928,8 @@ export default function RegistryPage() {
             <Users className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Student Registry (SIS)</h1>
-            <p className="text-sm text-gray-500">
+            <h1 className="text-2xl font-bold text-foreground">Student Registry (SIS)</h1>
+            <p className="text-sm text-muted-foreground">
               Central record of enrolled students, organized by grade and section.
             </p>
             {studentsError && (
@@ -940,7 +940,7 @@ export default function RegistryPage() {
         <div className="flex items-center gap-2">
           <Button
             type="button"
-            className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-sm px-4 py-2 rounded-lg shadow-sm"
+            className="bg-card border border-border text-muted-foreground hover:bg-muted text-sm px-4 py-2 rounded-lg shadow-sm"
             onClick={() => setIsBulkImportDialogOpen(true)}
           >
             Bulk Import
@@ -950,7 +950,7 @@ export default function RegistryPage() {
           <div className="relative">
             <Button
               type="button"
-              className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-sm px-4 py-2 rounded-lg shadow-sm inline-flex items-center gap-1.5"
+              className="bg-card border border-border text-muted-foreground hover:bg-muted text-sm px-4 py-2 rounded-lg shadow-sm inline-flex items-center gap-1.5"
               onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
               disabled={isExporting || students.length === 0}
             >
@@ -968,27 +968,27 @@ export default function RegistryPage() {
                 />
                 
                 {/* Dropdown menu */}
-                <div className="absolute right-0 mt-1 w-52 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                <div className="absolute right-0 mt-1 w-52 bg-card rounded-lg shadow-lg border border-border py-1 z-20">
                   <button
                     type="button"
-                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
+                    className="w-full px-4 py-2.5 text-left text-sm text-muted-foreground hover:bg-muted flex items-center gap-3"
                     onClick={() => void handleExportQrCodes("excel")}
                   >
                     <FileSpreadsheet className="w-4 h-4 text-green-600" />
                     <div>
                       <div className="font-medium">Excel (.xlsx)</div>
-                      <div className="text-xs text-gray-500">Spreadsheet with QR images</div>
+                      <div className="text-xs text-muted-foreground">Spreadsheet with QR images</div>
                     </div>
                   </button>
                   <button
                     type="button"
-                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
+                    className="w-full px-4 py-2.5 text-left text-sm text-muted-foreground hover:bg-muted flex items-center gap-3"
                     onClick={() => void handleExportQrCodes("word")}
                   >
                     <FileText className="w-4 h-4 text-blue-600" />
                     <div>
                       <div className="font-medium">Word (.docx)</div>
-                      <div className="text-xs text-gray-500">Printable ID cards</div>
+                      <div className="text-xs text-muted-foreground">Printable ID cards</div>
                     </div>
                   </button>
                 </div>
@@ -998,14 +998,14 @@ export default function RegistryPage() {
           
           <Button
             type="button"
-            className="hidden sm:inline-flex bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-sm px-4 py-2 rounded-lg shadow-sm"
+            className="hidden sm:inline-flex bg-card border border-border text-muted-foreground hover:bg-muted text-sm px-4 py-2 rounded-lg shadow-sm"
             onClick={() => setIsLevelDialogOpen(true)}
           >
             Manage Levels
           </Button>
           <Button
             type="button"
-            className="hidden sm:inline-flex bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 text-sm px-4 py-2 rounded-lg shadow-sm"
+            className="hidden sm:inline-flex bg-card border border-border text-muted-foreground hover:bg-muted text-sm px-4 py-2 rounded-lg shadow-sm"
             onClick={() => setIsSectionDialogOpen(true)}
           >
             Manage Sections
@@ -1026,11 +1026,11 @@ export default function RegistryPage() {
         </div>
       </div>
 
-      <Card className="flex-1 flex flex-col w-full border-gray-200 shadow-sm">
+      <Card className="flex-1 flex flex-col w-full border-border shadow-sm">
         <CardHeader className="border-b border-gray-50 pb-4">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-              <CardTitle className="text-lg font-bold text-gray-900">Student List</CardTitle>
+              <CardTitle className="text-lg font-bold text-foreground">Student List</CardTitle>
               <CardDescription>
                 {filteredStudents.length} of {students.length} students shown.
               </CardDescription>
@@ -1038,7 +1038,7 @@ export default function RegistryPage() {
             <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
               <div className="flex gap-2">
                 <Select value={levelFilter} onValueChange={setLevelFilter}>
-                  <SelectTrigger className="min-w-[120px] pl-3 pr-3 py-1.5 text-sm border border-gray-200 rounded-full bg-white text-gray-700 shadow-sm">
+                  <SelectTrigger className="min-w-[120px] pl-3 pr-3 py-1.5 text-sm border border-border rounded-full bg-card text-muted-foreground shadow-sm">
                     <SelectValue placeholder="All levels" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1051,7 +1051,7 @@ export default function RegistryPage() {
                   </SelectContent>
                 </Select>
                 <Select value={sectionFilter} onValueChange={setSectionFilter}>
-                  <SelectTrigger className="min-w-[120px] pl-3 pr-3 py-1.5 text-sm border border-gray-200 rounded-full bg-white text-gray-700 shadow-sm">
+                  <SelectTrigger className="min-w-[120px] pl-3 pr-3 py-1.5 text-sm border border-border rounded-full bg-card text-muted-foreground shadow-sm">
                     <SelectValue placeholder="All sections" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1069,7 +1069,7 @@ export default function RegistryPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search name, LRN, or section..."
-                className="w-full sm:w-64 px-3 py-1.5 text-sm border border-gray-200 rounded-full bg-white text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                className="w-full sm:w-64 px-3 py-1.5 text-sm border border-border rounded-full bg-card text-muted-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
               />
             </div>
           </div>
@@ -1078,18 +1078,18 @@ export default function RegistryPage() {
           <div className="flex-1 overflow-auto px-6 pb-6">
             <Table className="min-w-full">
               <TableHeader>
-                <TableRow className="bg-gray-50">
-                  <TableHead className="font-bold text-[#1B4D3E]">Student Name</TableHead>
-                  <TableHead className="font-bold text-[#1B4D3E]">Level / Year</TableHead>
-                  <TableHead className="font-bold text-[#1B4D3E]">Section</TableHead>
-                  <TableHead className="font-bold text-[#1B4D3E]">LRN / ID</TableHead>
-                  <TableHead className="text-right font-bold text-[#1B4D3E]">Status</TableHead>
+                <TableRow className="bg-muted">
+                  <TableHead className="font-bold text-primary">Student Name</TableHead>
+                  <TableHead className="font-bold text-primary">Level / Year</TableHead>
+                  <TableHead className="font-bold text-primary">Section</TableHead>
+                  <TableHead className="font-bold text-primary">LRN / ID</TableHead>
+                  <TableHead className="text-right font-bold text-primary">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoadingStudents ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-10 text-center text-sm text-gray-500">
+                    <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
                       Loading students...
                     </TableCell>
                   </TableRow>
@@ -1097,7 +1097,7 @@ export default function RegistryPage() {
                   filteredStudents.map((student) => (
                     <TableRow
                       key={student.id}
-                      className="cursor-pointer transition-all duration-150 hover:bg-white hover:shadow-sm hover:-translate-y-0.5 hover:border-gray-100"
+                      className="cursor-pointer transition-all duration-150 hover:bg-card hover:shadow-sm hover:-translate-y-0.5 hover:border-border/50"
                       onClick={() => {
                         setEditStudentError(null);
                         setEditStudent(student);
@@ -1107,19 +1107,19 @@ export default function RegistryPage() {
                         setIsEditStudentDialogOpen(true);
                       }}
                     >
-                      <TableCell className="font-medium text-gray-900">
+                      <TableCell className="font-medium text-foreground">
                         {student.name}
                       </TableCell>
-                      <TableCell className="text-gray-500">{student.grade}</TableCell>
-                      <TableCell className="text-gray-500">{student.section}</TableCell>
-                      <TableCell className="text-gray-500">{student.lrn}</TableCell>
+                      <TableCell className="text-muted-foreground">{student.grade}</TableCell>
+                      <TableCell className="text-muted-foreground">{student.section}</TableCell>
+                      <TableCell className="text-muted-foreground">{student.lrn}</TableCell>
                       <TableCell className="text-right">
                         <span
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                             student.status === "Active"
                               ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
                               : student.status === "Inactive"
-                              ? "bg-gray-100 text-gray-700"
+                              ? "bg-gray-100 text-muted-foreground"
                               : "bg-amber-50 text-amber-700 border border-amber-100"
                           }`}
                         >
@@ -1130,7 +1130,7 @@ export default function RegistryPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-10 text-center text-sm text-gray-500">
+                    <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
                       No students match your filters yet.
                     </TableCell>
                   </TableRow>
@@ -1148,13 +1148,13 @@ export default function RegistryPage() {
           onClick={() => setIsLevelDialogOpen(false)}
         >
           <div
-          className="bg-white rounded-2xl shadow-xl w-full max-w-lg border border-gray-100 dialog-panel-animate"
+          className="bg-card rounded-2xl shadow-xl w-full max-w-lg border border-border/50 dialog-panel-animate"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-start justify-between px-6 pt-5 pb-3 border-b border-gray-100">
+            <div className="flex items-start justify-between px-6 pt-5 pb-3 border-b border-border/50">
               <div>
-                <h2 className="text-lg font-bold text-gray-900">Manage Levels</h2>
-                <p className="text-sm text-gray-500">
+                <h2 className="text-lg font-bold text-foreground">Manage Levels</h2>
+                <p className="text-sm text-muted-foreground">
                   Add new basic-education grades or college year levels.
                 </p>
                 {levelsSectionsError && (
@@ -1164,7 +1164,7 @@ export default function RegistryPage() {
               <button
                 type="button"
                 onClick={() => setIsLevelDialogOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-muted-foreground/70 hover:text-muted-foreground"
                 aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
@@ -1173,8 +1173,8 @@ export default function RegistryPage() {
 
             <div className="px-6 pb-5 pt-4 space-y-6 max-h-[70vh] overflow-y-auto">
               <div className="space-y-2">
-                <p className="text-sm font-semibold text-gray-800">New level / year</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-sm font-semibold text-foreground">New level / year</p>
+                <p className="text-xs text-muted-foreground">
                   Examples: <span className="font-medium">Grade 11</span>, <span className="font-medium">BSIT 1st Yr</span>, <span className="font-medium">BSED 3rd Yr</span>.
                 </p>
                 <div className="flex items-center gap-2">
@@ -1183,7 +1183,7 @@ export default function RegistryPage() {
                     value={newLevel}
                     onChange={(e) => setNewLevel(e.target.value)}
                     placeholder="e.g. Grade 11 or BSIT 1st Yr"
-                    className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                    className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
                   />
                   <Button
                     type="button"
@@ -1201,7 +1201,7 @@ export default function RegistryPage() {
                     {levels.map((level) => (
                       <span
                         key={level.id}
-                        className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-50 text-gray-600 border border-gray-200 text-[11px]"
+                        className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border text-[11px]"
                       >
                         {level.name}
                       </span>
@@ -1210,15 +1210,15 @@ export default function RegistryPage() {
                 )}
               </div>
 
-              <div className="space-y-3 border-t border-gray-100 pt-4 mt-2">
-                <p className="text-sm font-semibold text-gray-800">Edit level / year</p>
-                <p className="text-xs text-gray-500">
+              <div className="space-y-3 border-t border-border/50 pt-4 mt-2">
+                <p className="text-sm font-semibold text-foreground">Edit level / year</p>
+                <p className="text-xs text-muted-foreground">
                   Choose a level and update its name.
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="block text-xs font-medium text-gray-700">Level / year</label>
+                    <label className="block text-xs font-medium text-muted-foreground">Level / year</label>
                     <Select
                       value={editLevelId}
                       onValueChange={(id: string) => {
@@ -1227,7 +1227,7 @@ export default function RegistryPage() {
                         setEditLevelName(selected ? selected.name : "");
                       }}
                     >
-                      <SelectTrigger className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm">
+                      <SelectTrigger className="w-full px-3 py-1.5 text-xs border border-border rounded-lg bg-card text-foreground shadow-sm">
                         <SelectValue placeholder="Select level" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1241,13 +1241,13 @@ export default function RegistryPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="block text-xs font-medium text-gray-700">New name</label>
+                    <label className="block text-xs font-medium text-muted-foreground">New name</label>
                     <input
                       type="text"
                       value={editLevelName}
                       onChange={(e) => setEditLevelName(e.target.value)}
                       placeholder="Enter new level name"
-                      className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                      className="w-full px-3 py-1.5 text-xs border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
                     />
                   </div>
                 </div>
@@ -1284,7 +1284,7 @@ export default function RegistryPage() {
               </div>
             </div>
 
-            <div className="px-6 pb-4 pt-3 border-t border-gray-100 flex justify-end gap-2">
+            <div className="px-6 pb-4 pt-3 border-t border-border/50 flex justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -1307,13 +1307,13 @@ export default function RegistryPage() {
           }}
         >
           <div
-            className="bg-white rounded-2xl shadow-xl w-full max-w-xl border border-gray-100 dialog-panel-animate"
+            className="bg-card rounded-2xl shadow-xl w-full max-w-xl border border-border/50 dialog-panel-animate"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-start justify-between px-6 pt-5 pb-3 border-b border-gray-100">
+            <div className="flex items-start justify-between px-6 pt-5 pb-3 border-b border-border/50">
               <div>
-                <h2 className="text-lg font-bold text-gray-900">Edit Student</h2>
-                <p className="text-sm text-gray-500">
+                <h2 className="text-lg font-bold text-foreground">Edit Student</h2>
+                <p className="text-sm text-muted-foreground">
                   Update the student details below. Changes will be saved to the registry.
                 </p>
                 {editStudentError && (
@@ -1326,7 +1326,7 @@ export default function RegistryPage() {
                   setIsEditStudentDialogOpen(false);
                   setEditStudent(null);
                 }}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-muted-foreground/70 hover:text-muted-foreground"
                 aria-label="Close edit student dialog"
               >
                 <X className="w-5 h-5" />
@@ -1341,25 +1341,25 @@ export default function RegistryPage() {
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2 space-y-1.5">
-                  <label className="block text-sm font-medium text-gray-700">Full Name</label>
+                  <label className="block text-sm font-medium text-muted-foreground">Full Name</label>
                   <input
                     name="name"
                     type="text"
                     required
                     defaultValue={editStudent.name}
                     placeholder="e.g. Juan Dela Cruz"
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                    className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-gray-700">Level / Year</label>
+                  <label className="block text-sm font-medium text-muted-foreground">Level / Year</label>
                   <Select
                     value={editStudentLevelName || editStudent.grade}
                     onValueChange={(value: string) => {
                       setEditStudentLevelName(value);
                     }}
                   >
-                    <SelectTrigger className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm">
+                    <SelectTrigger className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm">
                       <SelectValue placeholder="Select level" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1378,14 +1378,14 @@ export default function RegistryPage() {
                 </div>
                 {shouldShowEditStudentSectionField && (
                   <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-gray-700">Section</label>
+                    <label className="block text-sm font-medium text-muted-foreground">Section</label>
                     <Select
                       value={editStudentSectionName || editStudent.section || ""}
                       onValueChange={(value: string) => {
                         setEditStudentSectionName(value);
                       }}
                     >
-                      <SelectTrigger className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm">
+                      <SelectTrigger className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm">
                         <SelectValue placeholder="Select section" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1404,8 +1404,8 @@ export default function RegistryPage() {
                   </div>
                 )}
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-gray-700">
-                    LRN / Student ID <span className="text-xs font-normal text-gray-400">(optional)</span>
+                  <label className="block text-sm font-medium text-muted-foreground">
+                    LRN / Student ID <span className="text-xs font-normal text-muted-foreground/70">(optional)</span>
                   </label>
                   <input
                     name="lrn"
@@ -1413,42 +1413,42 @@ export default function RegistryPage() {
                     inputMode="numeric"
                     defaultValue={editStudent.lrn}
                     placeholder="e.g. 2025-0001"
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                    className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Guardian Phone <span className="text-xs font-normal text-gray-400">(optional)</span>
+                  <label className="block text-sm font-medium text-muted-foreground">
+                    Guardian Phone <span className="text-xs font-normal text-muted-foreground/70">(optional)</span>
                   </label>
                   <input
                     name="guardianPhone"
                     type="tel"
                     defaultValue={editStudent.guardianPhone ?? ""}
                     placeholder="e.g. 09XXXXXXXXX"
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                    className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Guardian Email <span className="text-xs font-normal text-gray-400">(optional)</span>
+                  <label className="block text-sm font-medium text-muted-foreground">
+                    Guardian Email <span className="text-xs font-normal text-muted-foreground/70">(optional)</span>
                   </label>
                   <input
                     name="guardianEmail"
                     type="email"
                     defaultValue={editStudent.guardianEmail ?? ""}
                     placeholder="e.g. parent@example.com"
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                    className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-gray-700">Status</label>
+                  <label className="block text-sm font-medium text-muted-foreground">Status</label>
                   <Select
                     value={editStudentStatus || editStudent.status}
                     onValueChange={(value: StudentStatus) => {
                       setEditStudentStatus(value);
                     }}
                   >
-                    <SelectTrigger className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm">
+                    <SelectTrigger className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1465,7 +1465,7 @@ export default function RegistryPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100 mt-2">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/50 mt-2">
                 <Button
                   type="button"
                   variant="outline"
@@ -1496,13 +1496,13 @@ export default function RegistryPage() {
           onClick={() => setIsSectionDialogOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl shadow-xl w-full max-w-lg border border-gray-100 dialog-panel-animate"
+            className="bg-card rounded-2xl shadow-xl w-full max-w-lg border border-border/50 dialog-panel-animate"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-start justify-between px-6 pt-5 pb-3 border-b border-gray-100">
+            <div className="flex items-start justify-between px-6 pt-5 pb-3 border-b border-border/50">
               <div>
-                <h2 className="text-lg font-bold text-gray-900">Manage Sections</h2>
-                <p className="text-sm text-gray-500">
+                <h2 className="text-lg font-bold text-foreground">Manage Sections</h2>
+                <p className="text-sm text-muted-foreground">
                   Add new sections for your levels and years.
                 </p>
                 {levelsSectionsError && (
@@ -1512,7 +1512,7 @@ export default function RegistryPage() {
               <button
                 type="button"
                 onClick={() => setIsSectionDialogOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-muted-foreground/70 hover:text-muted-foreground"
                 aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
@@ -1521,16 +1521,16 @@ export default function RegistryPage() {
 
             <div className="px-6 pb-5 pt-4 space-y-6 max-h-[70vh] overflow-y-auto">
               <div className="space-y-3">
-                <p className="text-sm font-semibold text-gray-800">New section</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-sm font-semibold text-foreground">New section</p>
+                <p className="text-xs text-muted-foreground">
                   Examples: <span className="font-medium">A</span>, <span className="font-medium">STEM-1</span>, <span className="font-medium">BSIT-2A</span>.
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="block text-xs font-medium text-gray-700">Level / year (optional)</label>
+                    <label className="block text-xs font-medium text-muted-foreground">Level / year (optional)</label>
                     <Select value={newSectionLevelId} onValueChange={setNewSectionLevelId}>
-                      <SelectTrigger className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm">
+                      <SelectTrigger className="w-full px-3 py-1.5 text-xs border border-border rounded-lg bg-card text-foreground shadow-sm">
                         <SelectValue placeholder="No specific level" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1545,13 +1545,13 @@ export default function RegistryPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="block text-xs font-medium text-gray-700">Section name</label>
+                    <label className="block text-xs font-medium text-muted-foreground">Section name</label>
                     <input
                       type="text"
                       value={newSection}
                       onChange={(e) => setNewSection(e.target.value)}
                       placeholder="e.g. A, STEM-1"
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                      className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
                     />
                   </div>
                 </div>
@@ -1573,7 +1573,7 @@ export default function RegistryPage() {
                     {sectionOptions.map((section) => (
                       <span
                         key={section}
-                        className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-50 text-gray-600 border border-gray-200 text-[11px]"
+                        className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border text-[11px]"
                       >
                         Section {section}
                       </span>
@@ -1582,15 +1582,15 @@ export default function RegistryPage() {
                 )}
               </div>
 
-              <div className="space-y-3 border-t border-gray-100 pt-4 mt-2">
-                <p className="text-sm font-semibold text-gray-800">Edit section</p>
-                <p className="text-xs text-gray-500">
+              <div className="space-y-3 border-t border-border/50 pt-4 mt-2">
+                <p className="text-sm font-semibold text-foreground">Edit section</p>
+                <p className="text-xs text-muted-foreground">
                   Choose a section and update its name and level.
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="block text-xs font-medium text-gray-700">Section</label>
+                    <label className="block text-xs font-medium text-muted-foreground">Section</label>
                     <Select
                       value={editSectionId}
                       onValueChange={(id: string) => {
@@ -1602,7 +1602,7 @@ export default function RegistryPage() {
                         );
                       }}
                     >
-                      <SelectTrigger className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm">
+                      <SelectTrigger className="w-full px-3 py-1.5 text-xs border border-border rounded-lg bg-card text-foreground shadow-sm">
                         <SelectValue placeholder="Select section" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1616,25 +1616,25 @@ export default function RegistryPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="block text-xs font-medium text-gray-700">New name</label>
+                    <label className="block text-xs font-medium text-muted-foreground">New name</label>
                     <input
                       type="text"
                       value={editSectionName}
                       onChange={(e) => setEditSectionName(e.target.value)}
                       placeholder="Enter new section name"
-                      className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                      className="w-full px-3 py-1.5 text-xs border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
                     />
                   </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
                   <div className="sm:w-1/2 space-y-1.5">
-                    <label className="block text-xs font-medium text-gray-700">Level / year (optional)</label>
+                    <label className="block text-xs font-medium text-muted-foreground">Level / year (optional)</label>
                     <Select
                       value={editSectionLevelId}
                       onValueChange={setEditSectionLevelId}
                     >
-                      <SelectTrigger className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm">
+                      <SelectTrigger className="w-full px-3 py-1.5 text-xs border border-border rounded-lg bg-card text-foreground shadow-sm">
                         <SelectValue placeholder="No specific level" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1675,7 +1675,7 @@ export default function RegistryPage() {
               </div>
             </div>
 
-            <div className="px-6 pb-4 pt-3 border-t border-gray-100 flex justify-end gap-2">
+            <div className="px-6 pb-4 pt-3 border-t border-border/50 flex justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -1695,13 +1695,13 @@ export default function RegistryPage() {
           onClick={() => setIsAddStudentDialogOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl shadow-xl w-full max-w-xl border border-gray-100 dialog-panel-animate"
+            className="bg-card rounded-2xl shadow-xl w-full max-w-xl border border-border/50 dialog-panel-animate"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-start justify-between px-6 pt-5 pb-3 border-b border-gray-100">
+            <div className="flex items-start justify-between px-6 pt-5 pb-3 border-b border-border/50">
               <div>
-                <h2 className="text-lg font-bold text-gray-900">Add Student</h2>
-                <p className="text-sm text-gray-500">
+                <h2 className="text-lg font-bold text-foreground">Add Student</h2>
+                <p className="text-sm text-muted-foreground">
                   Capture basic student details. You can map this to Supabase later.
                 </p>
                 {addStudentError && (
@@ -1711,7 +1711,7 @@ export default function RegistryPage() {
               <button
                 type="button"
                 onClick={() => setIsAddStudentDialogOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-muted-foreground/70 hover:text-muted-foreground"
                 aria-label="Close add student dialog"
               >
                 <X className="w-5 h-5" />
@@ -1726,24 +1726,24 @@ export default function RegistryPage() {
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2 space-y-1.5">
-                  <label className="block text-sm font-medium text-gray-700">Full Name</label>
+                  <label className="block text-sm font-medium text-muted-foreground">Full Name</label>
                   <input
                     name="name"
                     type="text"
                     required
                     placeholder="e.g. Juan Dela Cruz"
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                    className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-gray-700">Level / Year</label>
+                  <label className="block text-sm font-medium text-muted-foreground">Level / Year</label>
                   <Select
                     value={addStudentLevelName}
                     onValueChange={(value: string) => {
                       setAddStudentLevelName(value);
                     }}
                   >
-                    <SelectTrigger className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm">
+                    <SelectTrigger className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm">
                       <SelectValue placeholder="Select level" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1758,14 +1758,14 @@ export default function RegistryPage() {
                 </div>
                 {shouldShowAddStudentSectionField && (
                   <div className="space-y-1.5">
-                    <label className="block text-sm font-medium text-gray-700">Section</label>
+                    <label className="block text-sm font-medium text-muted-foreground">Section</label>
                     <Select
                       value={addStudentSectionName}
                       onValueChange={(value: string) => {
                         setAddStudentSectionName(value);
                       }}
                     >
-                      <SelectTrigger className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm">
+                      <SelectTrigger className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm">
                         <SelectValue placeholder="Select section" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1780,48 +1780,48 @@ export default function RegistryPage() {
                   </div>
                 )}
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-gray-700">
-                    LRN / Student ID <span className="text-xs font-normal text-gray-400">(optional)</span>
+                  <label className="block text-sm font-medium text-muted-foreground">
+                    LRN / Student ID <span className="text-xs font-normal text-muted-foreground/70">(optional)</span>
                   </label>
                   <input
                     name="lrn"
                     type="text"
                     inputMode="numeric"
                     placeholder="e.g. 2025-0001"
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                    className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Guardian Phone <span className="text-xs font-normal text-gray-400">(optional)</span>
+                  <label className="block text-sm font-medium text-muted-foreground">
+                    Guardian Phone <span className="text-xs font-normal text-muted-foreground/70">(optional)</span>
                   </label>
                   <input
                     name="guardianPhone"
                     type="tel"
                     placeholder="e.g. 09XXXXXXXXX"
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                    className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Guardian Email <span className="text-xs font-normal text-gray-400">(optional)</span>
+                  <label className="block text-sm font-medium text-muted-foreground">
+                    Guardian Email <span className="text-xs font-normal text-muted-foreground/70">(optional)</span>
                   </label>
                   <input
                     name="guardianEmail"
                     type="email"
                     placeholder="e.g. parent@example.com"
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                    className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-gray-700">Status</label>
+                  <label className="block text-sm font-medium text-muted-foreground">Status</label>
                   <Select
                     value={addStudentStatus}
                     onValueChange={(value: StudentStatus) => {
                       setAddStudentStatus(value);
                     }}
                   >
-                    <SelectTrigger className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm">
+                    <SelectTrigger className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1834,7 +1834,7 @@ export default function RegistryPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100 mt-2">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/50 mt-2">
                 <Button
                   type="button"
                   variant="outline"
@@ -1862,20 +1862,20 @@ export default function RegistryPage() {
           onClick={() => setIsBulkImportDialogOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl shadow-xl w-full max-w-xl border border-gray-100 dialog-panel-animate"
+            className="bg-card rounded-2xl shadow-xl w-full max-w-xl border border-border/50 dialog-panel-animate"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-start justify-between px-6 pt-5 pb-3 border-b border-gray-100">
+            <div className="flex items-start justify-between px-6 pt-5 pb-3 border-b border-border/50">
               <div>
-                <h2 className="text-lg font-bold text-gray-900">Bulk Import Students</h2>
-                <p className="text-sm text-gray-500">
+                <h2 className="text-lg font-bold text-foreground">Bulk Import Students</h2>
+                <p className="text-sm text-muted-foreground">
                   Upload a CSV file containing the official student list. This is UI-only for now.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsBulkImportDialogOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-muted-foreground/70 hover:text-muted-foreground"
                 aria-label="Close bulk import dialog"
               >
                 <X className="w-5 h-5" />
@@ -1890,20 +1890,20 @@ export default function RegistryPage() {
             >
               <div className="space-y-5 max-h-[70vh] overflow-y-auto hide-scrollbar">
                 <div className="space-y-3">
-                  <label className="block text-sm font-medium text-gray-700">CSV file</label>
+                  <label className="block text-sm font-medium text-muted-foreground">CSV file</label>
                   <label
                     htmlFor="bulk-import-file"
-                    className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/60 px-4 py-6 text-center cursor-pointer hover:border-[#1B4D3E]/40 hover:bg-white transition-colors"
+                    className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-muted/60 px-4 py-6 text-center cursor-pointer hover:border-[#1B4D3E]/40 hover:bg-card transition-colors"
                   >
-                    <span className="text-sm font-medium text-gray-800">Click to choose file or drag and drop</span>
-                    <span className="text-xs text-gray-500">Accepted format: .csv</span>
+                    <span className="text-sm font-medium text-foreground">Click to choose file or drag and drop</span>
+                    <span className="text-xs text-muted-foreground">Accepted format: .csv</span>
                     {bulkFileName ? (
                       <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-700 border border-emerald-100">
                         <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
                         File selected: {bulkFileName}
                       </span>
                     ) : (
-                      <span className="mt-1 text-xs text-gray-400">No file selected yet</span>
+                      <span className="mt-1 text-xs text-muted-foreground/70">No file selected yet</span>
                     )}
                     <input
                       id="bulk-import-file"
@@ -1918,8 +1918,8 @@ export default function RegistryPage() {
                   </label>
                 </div>
 
-                <div className="space-y-2 text-xs text-gray-600">
-                  <p className="font-semibold text-gray-800">Required columns</p>
+                <div className="space-y-2 text-xs text-muted-foreground">
+                  <p className="font-semibold text-foreground">Required columns</p>
                   <ul className="list-disc list-inside space-y-0.5">
                     <li>
                       <span className="font-medium">ID / LRN</span> – unique student identifier
@@ -1937,17 +1937,17 @@ export default function RegistryPage() {
                       <span className="font-medium">Section</span> – e.g. "A", "STEM-1"
                     </li>
                   </ul>
-                  <p className="text-[11px] text-gray-500">
+                  <p className="text-[11px] text-muted-foreground">
                     Optional columns such as Guardian Phone and Guardian Email can be added as extra columns in the CSV.
                   </p>
                 </div>
 
                 <div className="flex items-center justify-between pt-1 text-xs">
-                  <p className="text-gray-500">Need a starting point? Download a CSV template.</p>
+                  <p className="text-muted-foreground">Need a starting point? Download a CSV template.</p>
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-7 px-3 text-xs border-gray-200"
+                    className="h-7 px-3 text-xs border-border"
                     onClick={handleDownloadTemplateClick}
                   >
                     Export template
@@ -1955,7 +1955,7 @@ export default function RegistryPage() {
                 </div>
 
                 {bulkImportMessage && (
-                  <p className="text-xs text-gray-600 pt-2">{bulkImportMessage}</p>
+                  <p className="text-xs text-muted-foreground pt-2">{bulkImportMessage}</p>
                 )}
 
                 {bulkImportErrors.length > 0 && (
@@ -1986,7 +1986,7 @@ export default function RegistryPage() {
                   </div>
                 )}
 
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100 mt-2">
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/50 mt-2">
                   <Button
                     type="button"
                     variant="outline"

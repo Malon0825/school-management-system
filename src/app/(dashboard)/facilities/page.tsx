@@ -63,7 +63,7 @@ function FacilityImageBanner({ facility }: { facility: Facility }) {
                 ? "bg-amber-50/20 text-amber-50 border border-amber-100/60"
                 : facility.status === "out_of_service"
                 ? "bg-red-50/20 text-red-50 border border-red-100/60"
-                : "bg-gray-50/20 text-gray-50 border border-gray-100/60"
+                : "bg-gray-50/20 text-gray-50 border border-border/50/60"
             }
           `}
         >
@@ -368,8 +368,8 @@ export default function FacilitiesPage() {
             <Building2 className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Facilities</h1>
-            <p className="text-sm text-gray-500">
+            <h1 className="text-2xl font-bold text-foreground">Facilities</h1>
+            <p className="text-sm text-muted-foreground">
               Register and track key school facilities such as buildings, rooms, labs, and shared assets.
             </p>
             {errorMessage && (
@@ -390,15 +390,15 @@ export default function FacilitiesPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
-        <Card className="lg:col-span-1 border-gray-200 shadow-sm">
+        <Card className="lg:col-span-1 border-border shadow-sm">
           <CardHeader className="pb-3 border-b border-gray-50">
             <div className="flex items-center gap-2">
               <div className="h-9 w-9 rounded-full bg-[#1B4D3E] text-white flex items-center justify-center">
                 <Building2 className="h-5 w-5" />
               </div>
               <div>
-                <CardTitle className="text-base font-bold text-gray-900">Add Facility</CardTitle>
-                <CardDescription className="text-xs text-gray-500">
+                <CardTitle className="text-base font-bold text-foreground">Add Facility</CardTitle>
+                <CardDescription className="text-xs text-muted-foreground">
                   Capture basic details about a new school facility.
                 </CardDescription>
               </div>
@@ -407,7 +407,7 @@ export default function FacilitiesPage() {
           <CardContent className="pt-4">
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-gray-700" htmlFor="name">
+                <label className="block text-sm font-medium text-muted-foreground" htmlFor="name">
                   Facility Name
                 </label>
                 <input
@@ -418,12 +418,12 @@ export default function FacilitiesPage() {
                   value={formState.name}
                   onChange={handleChange}
                   placeholder="e.g. Main Building, Computer Lab 1"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                  className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-gray-700" htmlFor="type">
+                <label className="block text-sm font-medium text-muted-foreground" htmlFor="type">
                   Type
                 </label>
                 <input
@@ -434,16 +434,16 @@ export default function FacilitiesPage() {
                   value={formState.type}
                   onChange={handleChange}
                   placeholder="e.g. Classroom, Laboratory, Office, Facility"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                  className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-gray-700" htmlFor="location">
+                <label className="block text-sm font-medium text-muted-foreground" htmlFor="location">
                   Location / Identifier
                 </label>
                 <div className="relative">
-                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400">
+                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted-foreground/70">
                     <MapPin className="h-4 w-4" />
                   </span>
                   <input
@@ -454,13 +454,13 @@ export default function FacilitiesPage() {
                     value={formState.location}
                     onChange={handleChange}
                     placeholder="e.g. Building A - Room 203"
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-gray-700" htmlFor="imageUrl">
+                <label className="block text-sm font-medium text-muted-foreground" htmlFor="imageUrl">
                   Image URL (optional)
                 </label>
                 <input
@@ -470,13 +470,13 @@ export default function FacilitiesPage() {
                   value={formState.imageUrl}
                   onChange={handleChange}
                   placeholder="https://example.com/facility-photo.jpg"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                  className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-gray-700" htmlFor="capacity">
+                  <label className="block text-sm font-medium text-muted-foreground" htmlFor="capacity">
                     Capacity (optional)
                   </label>
                   <input
@@ -488,12 +488,12 @@ export default function FacilitiesPage() {
                     onChange={handleChange}
                     onWheel={(event) => event.currentTarget.blur()}
                     placeholder="e.g. 40"
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                    className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-gray-700" htmlFor="status">
+                  <label className="block text-sm font-medium text-muted-foreground" htmlFor="status">
                     Status
                   </label>
                   <Select
@@ -502,7 +502,7 @@ export default function FacilitiesPage() {
                       setFormState((previous) => ({ ...previous, status: value }));
                     }}
                   >
-                    <SelectTrigger className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm">
+                    <SelectTrigger className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -527,11 +527,11 @@ export default function FacilitiesPage() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2 flex flex-col border-gray-200 shadow-sm">
+        <Card className="lg:col-span-2 flex flex-col border-border shadow-sm">
           <CardHeader className="pb-3 border-b border-gray-50 flex flex-row items-center justify-between gap-3">
             <div>
-              <CardTitle className="text-lg font-bold text-gray-900">Registered Facilities</CardTitle>
-              <CardDescription className="text-xs text-gray-500">
+              <CardTitle className="text-lg font-bold text-foreground">Registered Facilities</CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
                 Quick overview of facilities configured for this school.
               </CardDescription>
             </div>
@@ -542,10 +542,10 @@ export default function FacilitiesPage() {
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search facilities by name, type, or location..."
-                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-full bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                  className="w-full px-3 py-2 text-xs border border-border rounded-full bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
                 />
               </div>
-              <div className="hidden sm:flex items-center gap-2 text-xs text-gray-500">
+              <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground">
                 <Boxes className="h-4 w-4" />
                 <span>
                   {isLoading
@@ -555,14 +555,14 @@ export default function FacilitiesPage() {
                     : `${facilities.length} total`}
                 </span>
               </div>
-              <div className="inline-flex items-center rounded-full bg-gray-100 p-1">
+              <div className="inline-flex items-center rounded-full bg-muted p-1">
                 <button
                   type="button"
                   onClick={() => setViewMode("list")}
                   className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                     viewMode === "list"
-                      ? "bg-white text-[#1B4D3E] shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
+                      ? "bg-card text-primary shadow-sm"
+                      : "text-muted-foreground hover:text-muted-foreground"
                   }`}
                 >
                   <LayoutList className="h-3.5 w-3.5" />
@@ -573,8 +573,8 @@ export default function FacilitiesPage() {
                   onClick={() => setViewMode("cards")}
                   className={`ml-0.5 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                     viewMode === "cards"
-                      ? "bg-white text-[#1B4D3E] shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
+                      ? "bg-card text-primary shadow-sm"
+                      : "text-muted-foreground hover:text-muted-foreground"
                   }`}
                 >
                   <LayoutGrid className="h-3.5 w-3.5" />
@@ -586,48 +586,48 @@ export default function FacilitiesPage() {
           <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
             <div className="flex-1 overflow-auto px-4 pb-4 pt-3 hide-scrollbar">
               {isLoading ? (
-                <div className="h-full flex flex-col items-center justify-center text-center text-sm text-gray-500 space-y-2">
+                <div className="h-full flex flex-col items-center justify-center text-center text-sm text-muted-foreground space-y-2">
                   <Building2 className="h-8 w-8 text-gray-300" />
-                  <p className="font-medium text-gray-700">Loading facilities...</p>
+                  <p className="font-medium text-muted-foreground">Loading facilities...</p>
                 </div>
               ) : facilities.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center text-sm text-gray-500 space-y-2">
+                <div className="h-full flex flex-col items-center justify-center text-center text-sm text-muted-foreground space-y-2">
                   <Building2 className="h-8 w-8 text-gray-300" />
-                  <p className="font-medium text-gray-700">No facilities added yet</p>
-                  <p className="text-xs text-gray-500 max-w-xs">
+                  <p className="font-medium text-muted-foreground">No facilities added yet</p>
+                  <p className="text-xs text-muted-foreground max-w-xs">
                     Use the form on the left to add your first facility. You can capture buildings, rooms, labs, and more.
                   </p>
                 </div>
               ) : filteredFacilities.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center text-sm text-gray-500 space-y-2">
+                <div className="h-full flex flex-col items-center justify-center text-center text-sm text-muted-foreground space-y-2">
                   <Building2 className="h-8 w-8 text-gray-300" />
-                  <p className="font-medium text-gray-700">No facilities match your search</p>
-                  <p className="text-xs text-gray-500 max-w-xs">
+                  <p className="font-medium text-muted-foreground">No facilities match your search</p>
+                  <p className="text-xs text-muted-foreground max-w-xs">
                     Try adjusting your search terms or clearing the search to see all facilities.
                   </p>
                 </div>
               ) : viewMode === "list" ? (
                 <Table className="min-w-full table-filter-animate">
                   <TableHeader>
-                    <TableRow className="bg-gray-50">
-                      <TableHead className="font-bold text-[#1B4D3E]">Name</TableHead>
-                      <TableHead className="font-bold text-[#1B4D3E]">Type</TableHead>
-                      <TableHead className="font-bold text-[#1B4D3E]">Location</TableHead>
-                      <TableHead className="font-bold text-[#1B4D3E]">Capacity</TableHead>
-                      <TableHead className="text-right font-bold text-[#1B4D3E]">Status</TableHead>
+                    <TableRow className="bg-muted">
+                      <TableHead className="font-bold text-primary">Name</TableHead>
+                      <TableHead className="font-bold text-primary">Type</TableHead>
+                      <TableHead className="font-bold text-primary">Location</TableHead>
+                      <TableHead className="font-bold text-primary">Capacity</TableHead>
+                      <TableHead className="text-right font-bold text-primary">Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="table-filter-animate">
                     {filteredFacilities.map((facility) => (
                       <TableRow
                         key={facility.id}
-                        className="cursor-pointer hover:bg-white hover:shadow-sm hover:-translate-y-0.5 hover:border-gray-100 transition-all duration-150"
+                        className="cursor-pointer hover:bg-card hover:shadow-sm hover:-translate-y-0.5 hover:border-border/50 transition-all duration-150"
                         onClick={() => openFacilityDialog(facility)}
                       >
-                        <TableCell className="font-medium text-gray-900">{facility.name}</TableCell>
-                        <TableCell className="text-gray-500">{facility.type}</TableCell>
-                        <TableCell className="text-gray-500">{facility.location}</TableCell>
-                        <TableCell className="text-gray-500">
+                        <TableCell className="font-medium text-foreground">{facility.name}</TableCell>
+                        <TableCell className="text-muted-foreground">{facility.type}</TableCell>
+                        <TableCell className="text-muted-foreground">{facility.location}</TableCell>
+                        <TableCell className="text-muted-foreground">
                           {facility.capacity != null && !Number.isNaN(facility.capacity)
                             ? facility.capacity
                             : "—"}
@@ -642,7 +642,7 @@ export default function FacilitiesPage() {
                                   ? "bg-amber-50 text-amber-700 border border-amber-100"
                                   : facility.status === "out_of_service"
                                   ? "bg-red-50 text-red-700 border border-red-100"
-                                  : "bg-gray-50 text-gray-700 border border-gray-100"
+                                  : "bg-gray-50 text-muted-foreground border border-border/50"
                               }
                             `}
                           >
@@ -664,32 +664,32 @@ export default function FacilitiesPage() {
                   {filteredFacilities.map((facility) => (
                     <div
                       key={facility.id}
-                      className={`group relative h-48 overflow-hidden rounded-xl border shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md
+                      className={`group relative h-48 overflow-hidden rounded-xl border shadow-sm bg-card transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md
                         ${
                           facility.status === "operational"
-                            ? "bg-emerald-50/60 border-emerald-100"
+                            ? "border-emerald-300/70"
                             : facility.status === "maintenance"
-                            ? "bg-amber-50/60 border-amber-100"
+                            ? "border-amber-300/70"
                             : facility.status === "out_of_service"
-                            ? "bg-red-50/60 border-red-100"
-                            : "bg-gray-50/60 border-gray-100"
+                            ? "border-red-300/70"
+                            : "border-border/60"
                         }
                       `}
                       onClick={() => openFacilityDialog(facility)}
                     >
                       <FacilityImageBanner facility={facility} />
-                      <div className="space-y-1.5 p-3 text-xs text-gray-600 transition-opacity duration-300 group-hover:opacity-0 group-hover:translate-y-2">
-                        <p className="text-sm font-semibold text-gray-900 line-clamp-1">
+                      <div className="space-y-1.5 p-3 text-xs text-card-foreground transition-opacity duration-300 group-hover:opacity-0 group-hover:translate-y-2">
+                        <p className="text-sm font-semibold text-card-foreground line-clamp-1">
                           {facility.name}
                         </p>
                         <div className="flex items-center gap-1.5">
-                          <MapPin className="h-3.5 w-3.5 text-gray-400" />
-                          <span className="line-clamp-1">{facility.location}</span>
+                          <MapPin className="h-3.5 w-3.5 text-card-foreground/70" />
+                          <span className="line-clamp-1 text-card-foreground/90">{facility.location}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
-                            <Boxes className="h-3.5 w-3.5 text-gray-400" />
-                            <span>
+                            <Boxes className="h-3.5 w-3.5 text-card-foreground/70" />
+                            <span className="text-card-foreground/90">
                               Capacity:{" "}
                               {facility.capacity != null && !Number.isNaN(facility.capacity)
                                 ? facility.capacity
@@ -717,7 +717,7 @@ export default function FacilitiesPage() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-start gap-3">
-              <div className="mt-0.5 hidden sm:flex h-9 w-9 items-center justify-center rounded-full bg-[#1B4D3E]/10 text-[#1B4D3E]">
+              <div className="mt-0.5 hidden sm:flex h-9 w-9 items-center justify-center rounded-full bg-[#1B4D3E]/10 text-primary">
                 <Building2 className="h-5 w-5" />
               </div>
               <div>
@@ -741,7 +741,7 @@ export default function FacilitiesPage() {
                     type="text"
                     value={editFormState.name}
                     onChange={handleEditChange}
-                    className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E]"
+                    className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E]"
                   />
                 </div>
                 <div>
@@ -753,7 +753,7 @@ export default function FacilitiesPage() {
                     type="text"
                     value={editFormState.type}
                     onChange={handleEditChange}
-                    className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E]"
+                    className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E]"
                   />
                 </div>
                 <div>
@@ -765,7 +765,7 @@ export default function FacilitiesPage() {
                     type="text"
                     value={editFormState.location}
                     onChange={handleEditChange}
-                    className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E]"
+                    className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E]"
                   />
                 </div>
                 <div>
@@ -777,7 +777,7 @@ export default function FacilitiesPage() {
                     type="url"
                     value={editFormState.imageUrl}
                     onChange={handleEditChange}
-                    className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E]"
+                    className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E]"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -791,7 +791,7 @@ export default function FacilitiesPage() {
                       min={0}
                       value={editFormState.capacity}
                       onChange={handleEditChange}
-                      className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E]"
+                      className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E]"
                     />
                   </div>
                   <div>
@@ -806,7 +806,7 @@ export default function FacilitiesPage() {
                         );
                       }}
                     >
-                      <SelectTrigger className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm">
+                      <SelectTrigger className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -834,7 +834,7 @@ export default function FacilitiesPage() {
                 size="sm"
                 onClick={handleEditSave}
                 disabled={isEditSubmitting}
-                className="bg-[#1B4D3E] text-white hover:bg-[#163e32] px-4 min-w-[7.5rem]"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 px-4 min-w-[7.5rem]"
               >
                 {isEditSubmitting ? "Saving..." : "Save Changes"}
               </Button>

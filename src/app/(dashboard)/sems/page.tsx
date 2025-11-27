@@ -1828,10 +1828,10 @@ export default function EventsPage() {
   // Show loading state while validating session
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-muted">
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1B4D3E] mx-auto"></div>
-          <p className="text-sm text-gray-500">Loading events...</p>
+          <p className="text-sm text-muted-foreground">Loading events...</p>
         </div>
       </div>
     );
@@ -1844,11 +1844,11 @@ export default function EventsPage() {
 
   if (!hasAccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center space-y-4 p-8 bg-white rounded-xl shadow-lg border border-red-100 max-w-md">
+      <div className="min-h-screen flex items-center justify-center bg-muted">
+        <div className="text-center space-y-4 p-8 bg-card rounded-xl shadow-lg border border-red-100 max-w-md">
           <ShieldAlert className="w-16 h-16 text-red-500 mx-auto" />
-          <h1 className="text-2xl font-bold text-gray-900">Access Denied</h1>
-          <p className="text-gray-500">
+          <h1 className="text-2xl font-bold text-foreground">Access Denied</h1>
+          <p className="text-muted-foreground">
             You do not have permission to view the Events module. Please contact your system administrator.
           </p>
           <Button onClick={() => router.push("/dashboard")} variant="outline" className="w-full">
@@ -1868,8 +1868,8 @@ export default function EventsPage() {
               <QrCode className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Events Management</h1>
-              <p className="text-sm text-gray-500">
+              <h1 className="text-2xl font-bold text-foreground">Events Management</h1>
+              <p className="text-sm text-muted-foreground">
                 Offline-capable, QR-based attendance for school events, assemblies, and gate entries.
               </p>
             </div>
@@ -1879,7 +1879,7 @@ export default function EventsPage() {
               type="button"
               variant="outline"
               onClick={() => router.push("/sems/scan")}
-              className="text-sm px-4 py-2 rounded-lg border-gray-200 bg-white text-gray-700 hover:border-emerald-300 hover:text-emerald-800 shadow-sm"
+              className="text-sm px-4 py-2 rounded-lg border-border bg-card text-muted-foreground hover:border-emerald-300 hover:text-emerald-800 shadow-sm"
             >
               My Scanner Events
             </Button>
@@ -1896,16 +1896,16 @@ export default function EventsPage() {
           </div>
         </div>
 
-        <Card className="flex-1 flex flex-col w-full border-gray-200 shadow-sm ">
-          <CardHeader className="border-b border-gray-50 pb-4">
+        <Card className="flex-1 flex flex-col w-full border-border shadow-sm">
+          <CardHeader className="border-b border-border/80 pb-4 bg-card/95">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <CardTitle className="text-lg font-bold text-gray-900">List of Events</CardTitle>
+                <CardTitle className="text-lg font-bold text-foreground">List of Events</CardTitle>
                 <CardDescription>Events scheduled for today with live status.</CardDescription>
               </div>
               <div className="flex items-center gap-2">
                 {eventSelectionState.hasSelection && (
-                  <span className="hidden md:inline text-xs text-gray-500 mr-1">
+                  <span className="hidden md:inline text-xs text-muted-foreground mr-1">
                     {eventSelectionState.selectedCount} selected
                   </span>
                 )}
@@ -1948,7 +1948,7 @@ export default function EventsPage() {
                 </AlertDialog>
                 <div className="hidden lg:inline-flex items-center">
                   <Select value={venueFilter} onValueChange={setVenueFilter}>
-                    <SelectTrigger className="min-w-[160px] pl-3 pr-9 py-1.5 text-sm border border-gray-200 rounded-full bg-white text-gray-700 shadow-sm">
+                    <SelectTrigger className="min-w-[160px] pl-3 pr-9 py-1.5 text-sm border border-border rounded-full bg-card text-muted-foreground shadow-sm">
                       <SelectValue placeholder="All venues" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1966,7 +1966,7 @@ export default function EventsPage() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search events..."
-                  className="w-40 lg:w-56 px-3 py-1.5 text-sm border border-gray-200 rounded-full bg-white text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                  className="w-40 lg:w-56 px-3 py-1.5 text-sm border border-border rounded-full bg-card text-muted-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
                 />
               </div>
             </div>
@@ -1975,7 +1975,7 @@ export default function EventsPage() {
             <div className="flex-1 overflow-auto px-6 pb-6 hide-scrollbar">
               <Table className="min-w-full">
                 <TableHeader>
-                  <TableRow className="bg-gray-50">
+                  <TableRow className="bg-muted">
                     <TableHead className="w-10">
                       <Checkbox
                         checked={eventSelectionState.allSelected}
@@ -1990,14 +1990,14 @@ export default function EventsPage() {
                         aria-label="Select all events"
                       />
                     </TableHead>
-                    <TableHead className="font-bold text-[#1B4D3E]">Event Name</TableHead>
-                    <TableHead className="font-bold text-[#1B4D3E]">Date</TableHead>
-                    <TableHead className="font-bold text-[#1B4D3E]">Time</TableHead>
-                    <TableHead className="font-bold text-[#1B4D3E]">Venue</TableHead>
-                    <TableHead className="font-bold text-[#1B4D3E]">Audience</TableHead>
-                    <TableHead className="font-bold text-[#1B4D3E]">Scanners</TableHead>
-                    <TableHead className="text-right font-bold text-[#1B4D3E]">Attendees</TableHead>
-                    <TableHead className="text-right font-bold text-[#1B4D3E]">Status</TableHead>
+                    <TableHead className="font-bold text-primary">Event Name</TableHead>
+                    <TableHead className="font-bold text-primary">Date</TableHead>
+                    <TableHead className="font-bold text-primary">Time</TableHead>
+                    <TableHead className="font-bold text-primary">Venue</TableHead>
+                    <TableHead className="font-bold text-primary">Audience</TableHead>
+                    <TableHead className="font-bold text-primary">Scanners</TableHead>
+                    <TableHead className="text-right font-bold text-primary">Attendees</TableHead>
+                    <TableHead className="text-right font-bold text-primary">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody
@@ -2007,7 +2007,7 @@ export default function EventsPage() {
                   {isLoadingEvents ? (
                     <TableRow>
                       <TableCell colSpan={8} className="text-center py-8">
-                        <div className="flex items-center justify-center gap-2 text-gray-500">
+                        <div className="flex items-center justify-center gap-2 text-muted-foreground">
                           <span className="h-4 w-4 border-2 border-gray-300 border-t-[#1B4D3E] rounded-full animate-spin" />
                           Loading events...
                         </div>
@@ -2029,7 +2029,7 @@ export default function EventsPage() {
                     </TableRow>
                   ) : eventsList.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                         No events found. Create your first event to get started.
                       </TableCell>
                     </TableRow>
@@ -2058,7 +2058,7 @@ export default function EventsPage() {
                         <TableRow
                           key={event.id}
                           onClick={() => void openEditDialog(event.id)}
-                          className="cursor-pointer transition-all duration-150 hover:bg-white hover:shadow-sm hover:-translate-y-0.5 hover:border-gray-100"
+                          className="cursor-pointer transition-all duration-150 hover:bg-card hover:shadow-sm hover:-translate-y-0.5 hover:border-border/50"
                         >
                           <TableCell className="w-10" onClick={(e) => e.stopPropagation()}>
                             <Checkbox
@@ -2068,23 +2068,23 @@ export default function EventsPage() {
                               aria-label="Select event"
                             />
                           </TableCell>
-                          <TableCell className="font-medium text-gray-900">{event.title}</TableCell>
-                          <TableCell className="text-gray-500 whitespace-nowrap">{formatEventDate()}</TableCell>
-                          <TableCell className="text-gray-500">{event.timeRange}</TableCell>
-                          <TableCell className="text-gray-500">{event.venue ?? ""}</TableCell>
-                          <TableCell className="text-gray-500">{event.audienceSummary}</TableCell>
-                          <TableCell className="text-gray-500">{event.scannerSummary}</TableCell>
+                          <TableCell className="font-medium text-foreground">{event.title}</TableCell>
+                          <TableCell className="text-muted-foreground whitespace-nowrap">{formatEventDate()}</TableCell>
+                          <TableCell className="text-muted-foreground">{event.timeRange}</TableCell>
+                          <TableCell className="text-muted-foreground">{event.venue ?? ""}</TableCell>
+                          <TableCell className="text-muted-foreground">{event.audienceSummary}</TableCell>
+                          <TableCell className="text-muted-foreground">{event.scannerSummary}</TableCell>
                           <TableCell className="text-right font-medium">
                             {event.actualAttendees} / {event.expectedAttendees}
                           </TableCell>
                           <TableCell className="text-right">
                             <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize border ${
                                 event.status === "live"
-                                  ? "bg-emerald-100 text-emerald-800 animate-pulse"
+                                  ? "bg-emerald-500/15 text-emerald-300 border-emerald-400/70 animate-pulse"
                                   : event.status === "completed"
-                                  ? "bg-gray-100 text-gray-800"
-                                  : "bg-amber-50 text-amber-700 border border-amber-100"
+                                  ? "bg-muted text-muted-foreground border-border/70"
+                                  : "bg-amber-500/15 text-amber-300 border-amber-400/70"
                               }`}
                             >
                               {event.status}
@@ -2103,13 +2103,13 @@ export default function EventsPage() {
 
       {isCreateDialogOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm dialog-backdrop-animate">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl border border-gray-100 dialog-panel-animate">
-            <div className="flex items-start justify-between px-6 pt-5 pb-3 border-b border-gray-100">
+          <div className="bg-card rounded-2xl shadow-xl w-full max-w-2xl border border-border/50 dialog-panel-animate">
+            <div className="flex items-start justify-between px-6 pt-5 pb-3 border-b border-border/50">
               <div>
-                <h2 className="text-lg font-bold text-gray-900">
+                <h2 className="text-lg font-bold text-foreground">
                   {isEditMode ? "Edit Event" : "Create Event"}
                 </h2>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   {isEditMode
                     ? "Update the event details, target audience, and session timing."
                     : "Configure the event details, target audience, and session timing."}
@@ -2121,7 +2121,7 @@ export default function EventsPage() {
                   setIsCreateDialogOpen(false);
                   resetForm();
                 }}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-muted-foreground/70 hover:text-muted-foreground"
                 aria-label="Close event dialog"
               >
                 <X className="w-5 h-5" />
@@ -2135,7 +2135,7 @@ export default function EventsPage() {
               {/* Loading state for edit mode */}
               {isLoadingEditEvent && (
                 <div className="flex items-center justify-center py-8">
-                  <div className="flex items-center gap-2 text-gray-500">
+                  <div className="flex items-center gap-2 text-muted-foreground">
                     <span className="h-4 w-4 border-2 border-gray-300 border-t-[#1B4D3E] rounded-full animate-spin" />
                     Loading event data...
                   </div>
@@ -2151,7 +2151,7 @@ export default function EventsPage() {
 
               {/* Event Title */}
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-gray-700">Event Title</label>
+                <label className="block text-sm font-medium text-muted-foreground">Event Title</label>
                 <input
                   name="title"
                   type="text"
@@ -2159,7 +2159,7 @@ export default function EventsPage() {
                   value={createEventTitle}
                   onChange={(e) => setCreateEventTitle(e.target.value)}
                   placeholder="e.g. Foundation Day"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-gray-400"
+                  className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
                   disabled={isCreatingEvent}
                 />
               </div>
@@ -2185,12 +2185,12 @@ export default function EventsPage() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-gray-800">Audience Filter</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm font-semibold text-foreground">Audience Filter</p>
+                    <p className="text-xs text-muted-foreground">
                       Define who can attend this event.
                     </p>
                   </div>
-                  <Badge variant="outline" className="text-xs bg-gray-50">
+                  <Badge variant="outline" className="text-xs bg-muted">
                     {getAudienceSummary()}
                   </Badge>
                 </div>
@@ -2237,7 +2237,7 @@ export default function EventsPage() {
                               "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
                               audienceMode === value
                                 ? "bg-[#1B4D3E] text-white shadow-sm"
-                                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                : "bg-gray-100 text-muted-foreground hover:bg-accent"
                             )}
                           >
                             <Icon className="h-3.5 w-3.5" />
@@ -2266,23 +2266,23 @@ export default function EventsPage() {
 
                 {/* Mode: By Level / Section */}
                 {(audienceMode === "level_section" || audienceMode === "mixed") && (
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
-                      <p className="text-xs font-medium text-gray-700">
+                  <div className="border border-border rounded-lg overflow-hidden">
+                    <div className="bg-muted px-3 py-2 border-b border-border">
+                      <p className="text-xs font-medium text-muted-foreground">
                         Select levels and/or specific sections
                       </p>
                     </div>
                     <div className="max-h-48 overflow-y-auto">
                       {isLoadingLevels ? (
-                        <div className="p-4 text-center text-sm text-gray-500">
+                        <div className="p-4 text-center text-sm text-muted-foreground">
                           Loading levels...
                         </div>
                       ) : levels.length === 0 ? (
-                        <div className="p-4 text-center text-sm text-gray-500">
+                        <div className="p-4 text-center text-sm text-muted-foreground">
                           No levels found. Add levels in the SIS module.
                         </div>
                       ) : (
-                        <div className="divide-y divide-gray-100">
+                        <div className="divide-y divide-border/50">
                           {levels.map((level) => {
                             const levelSections = getSectionsForLevel(level.id);
                             const isExpanded = expandedLevelIds.has(level.id);
@@ -2291,16 +2291,16 @@ export default function EventsPage() {
 
                             return (
                               <div key={level.id}>
-                                <div className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50">
+                                <div className="flex items-center gap-2 px-3 py-2 hover:bg-muted">
                                   <button
                                     type="button"
                                     onClick={() => toggleLevelExpansion(level.id)}
-                                    className="p-0.5 hover:bg-gray-200 rounded"
+                                    className="p-0.5 hover:bg-accent rounded"
                                   >
                                     {isExpanded ? (
-                                      <ChevronDown className="h-4 w-4 text-gray-400" />
+                                      <ChevronDown className="h-4 w-4 text-muted-foreground/70" />
                                     ) : (
-                                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                                      <ChevronRight className="h-4 w-4 text-muted-foreground/70" />
                                     )}
                                   </button>
                                   <Checkbox
@@ -2316,21 +2316,21 @@ export default function EventsPage() {
                                   />
                                   <label
                                     htmlFor={`level-${level.id}`}
-                                    className="flex-1 text-sm font-medium text-gray-800 cursor-pointer"
+                                    className="flex-1 text-sm font-medium text-foreground cursor-pointer"
                                   >
                                     {level.name}
                                   </label>
-                                  <span className="text-xs text-gray-400">
+                                  <span className="text-xs text-muted-foreground/70">
                                     {levelSections.length} section(s)
                                   </span>
                                 </div>
 
                                 {isExpanded && levelSections.length > 0 && (
-                                  <div className="bg-gray-50/50 border-t border-gray-100">
+                                  <div className="bg-muted/50 border-t border-border/50">
                                     {levelSections.map((section) => (
                                       <div
                                         key={section.id}
-                                        className="flex items-center gap-2 pl-10 pr-3 py-1.5 hover:bg-gray-100"
+                                        className="flex items-center gap-2 pl-10 pr-3 py-1.5 hover:bg-accent"
                                       >
                                         <Checkbox
                                           id={`section-${section.id}`}
@@ -2342,7 +2342,7 @@ export default function EventsPage() {
                                         />
                                         <label
                                           htmlFor={`section-${section.id}`}
-                                          className="text-sm text-gray-700 cursor-pointer"
+                                          className="text-sm text-muted-foreground cursor-pointer"
                                         >
                                           {section.name}
                                         </label>
@@ -2361,34 +2361,34 @@ export default function EventsPage() {
 
                 {/* Mode: Specific Students */}
                 {(audienceMode === "students" || audienceMode === "mixed") && (
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
+                  <div className="border border-border rounded-lg overflow-hidden">
+                    <div className="bg-muted px-3 py-2 border-b border-border">
                       <div className="flex items-center gap-2">
-                        <Search className="h-4 w-4 text-gray-400" />
+                        <Search className="h-4 w-4 text-muted-foreground/70" />
                         <Input
                           type="text"
                           placeholder="Search students by name, LRN, grade, or section..."
                           value={studentSearchQuery}
                           onChange={(e) => setStudentSearchQuery(e.target.value)}
-                          className="h-8 text-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-gray-400"
+                          className="h-8 text-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/70"
                         />
                       </div>
                     </div>
                     <div className="max-h-40 overflow-y-auto">
                       {isLoadingStudents ? (
-                        <div className="p-4 text-center text-sm text-gray-500">
+                        <div className="p-4 text-center text-sm text-muted-foreground">
                           Loading students...
                         </div>
                       ) : filteredStudents.length === 0 ? (
-                        <div className="p-4 text-center text-sm text-gray-500">
+                        <div className="p-4 text-center text-sm text-muted-foreground">
                           {studentSearchQuery ? "No students match your search." : "No students found."}
                         </div>
                       ) : (
-                        <div className="divide-y divide-gray-100">
+                        <div className="divide-y divide-border/50">
                           {filteredStudents.slice(0, 50).map((student) => (
                             <div
                               key={student.id}
-                              className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50"
+                              className="flex items-center gap-2 px-3 py-2 hover:bg-muted"
                             >
                               <Checkbox
                                 id={`student-${student.id}`}
@@ -2410,18 +2410,18 @@ export default function EventsPage() {
                                 htmlFor={`student-${student.id}`}
                                 className="flex-1 cursor-pointer"
                               >
-                                <span className="text-sm font-medium text-gray-800">
+                                <span className="text-sm font-medium text-foreground">
                                   {student.name}
                                 </span>
-                                <span className="text-xs text-gray-500 ml-2">
+                                <span className="text-xs text-muted-foreground ml-2">
                                   {student.grade} - {student.section}
                                 </span>
                               </label>
-                              <span className="text-xs text-gray-400">{student.lrn}</span>
+                              <span className="text-xs text-muted-foreground/70">{student.lrn}</span>
                             </div>
                           ))}
                           {filteredStudents.length > 50 && (
-                            <div className="px-3 py-2 text-xs text-gray-500 bg-gray-50">
+                            <div className="px-3 py-2 text-xs text-muted-foreground bg-muted">
                               Showing 50 of {filteredStudents.length} students. Use search to narrow results.
                             </div>
                           )}
@@ -2443,7 +2443,7 @@ export default function EventsPage() {
                   <button
                     type="button"
                     onClick={() => setShowExclusions(!showExclusions)}
-                    className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700"
+                    className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-muted-foreground"
                   >
                     <UserX className="h-3.5 w-3.5" />
                     {showExclusions ? "Hide exclusions" : "Add exclusions (optional)"}
@@ -2483,7 +2483,7 @@ export default function EventsPage() {
                                 "px-2 py-1 rounded text-xs transition-colors",
                                 excludedLevelIds.has(level.id)
                                   ? "bg-red-600 text-white"
-                                  : "bg-white text-gray-600 border border-gray-200 hover:border-red-300"
+                                  : "bg-card text-muted-foreground border border-border hover:border-red-300"
                               )}
                             >
                               {level.name}
@@ -2501,15 +2501,15 @@ export default function EventsPage() {
                             placeholder="Search sections to exclude..."
                             value={excludeSectionSearch}
                             onChange={(e) => setExcludeSectionSearch(e.target.value)}
-                            className="h-8 text-xs bg-white"
+                            className="h-8 text-xs bg-card"
                           />
-                          <div className="max-h-32 overflow-y-auto border border-red-100 rounded-md bg-white">
+                          <div className="max-h-32 overflow-y-auto border border-red-100 rounded-md bg-card">
                             {sections.length === 0 ? (
-                              <div className="px-3 py-2 text-[11px] text-gray-500">
+                              <div className="px-3 py-2 text-[11px] text-muted-foreground">
                                 No sections found.
                               </div>
                             ) : excludeFilteredSections.length === 0 && excludeSectionSearch.trim() ? (
-                              <div className="px-3 py-2 text-[11px] text-gray-500">
+                              <div className="px-3 py-2 text-[11px] text-muted-foreground">
                                 No sections match your search.
                               </div>
                             ) : (
@@ -2583,19 +2583,19 @@ export default function EventsPage() {
                             placeholder="Search students to exclude..."
                             value={excludeStudentSearch}
                             onChange={(e) => setExcludeStudentSearch(e.target.value)}
-                            className="h-8 text-xs bg-white"
+                            className="h-8 text-xs bg-card"
                           />
-                          <div className="max-h-32 overflow-y-auto border border-red-100 rounded-md bg-white">
+                          <div className="max-h-32 overflow-y-auto border border-red-100 rounded-md bg-card">
                             {isLoadingStudents ? (
-                              <div className="px-3 py-2 text-[11px] text-gray-500">
+                              <div className="px-3 py-2 text-[11px] text-muted-foreground">
                                 Loading students...
                               </div>
                             ) : allStudents.length === 0 ? (
-                              <div className="px-3 py-2 text-[11px] text-gray-500">
+                              <div className="px-3 py-2 text-[11px] text-muted-foreground">
                                 No students found.
                               </div>
                             ) : excludeFilteredStudents.length === 0 && excludeStudentSearch.trim() ? (
-                              <div className="px-3 py-2 text-[11px] text-gray-500">
+                              <div className="px-3 py-2 text-[11px] text-muted-foreground">
                                 No students match your search.
                               </div>
                             ) : (
@@ -2622,7 +2622,7 @@ export default function EventsPage() {
                                   <span className="truncate">
                                     {student.name}
                                   </span>
-                                  <span className="ml-2 shrink-0 text-[10px] text-gray-500">
+                                  <span className="ml-2 shrink-0 text-[10px] text-muted-foreground">
                                     {student.grade} - {student.section}
                                   </span>
                                 </button>
@@ -2670,19 +2670,19 @@ export default function EventsPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-gray-800">Scanner Access</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm font-semibold text-foreground">Scanner Access</p>
+                    <p className="text-xs text-muted-foreground">
                       Choose which users are allowed to scan attendees for this event.
                     </p>
                   </div>
-                  <Badge variant="outline" className="text-xs bg-gray-50">
+                  <Badge variant="outline" className="text-xs bg-muted">
                     {selectedScannerIds.size > 0
                       ? `${selectedScannerIds.size} scanner${selectedScannerIds.size !== 1 ? "s" : ""} selected`
                       : "No scanners selected"}
                   </Badge>
                 </div>
 
-                <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50/60">
+                <div className="space-y-2 border border-border rounded-lg p-3 bg-muted/60">
                   {scannerError && (
                     <div className="p-2 mb-1 text-xs text-red-700 bg-red-50 border border-red-200 rounded">
                       {scannerError}
@@ -2691,26 +2691,26 @@ export default function EventsPage() {
 
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1">
-                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/70" />
                       <Input
                         type="text"
                         placeholder="Search by name or email..."
                         value={scannerSearchQuery}
                         onChange={(e) => setScannerSearchQuery(e.target.value)}
-                        className="pl-7 h-8 text-xs bg-white"
+                        className="pl-7 h-8 text-xs bg-card"
                       />
                     </div>
                   </div>
 
-                  <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white">
+                  <div className="max-h-40 overflow-y-auto border border-border rounded-md bg-card">
                     {isLoadingScanners ? (
-                      <div className="px-3 py-2 text-[11px] text-gray-500">Loading scanners...</div>
+                      <div className="px-3 py-2 text-[11px] text-muted-foreground">Loading scanners...</div>
                     ) : scannerUsers.length === 0 ? (
-                      <div className="px-3 py-2 text-[11px] text-gray-500">
+                      <div className="px-3 py-2 text-[11px] text-muted-foreground">
                         No scanner-capable users found.
                       </div>
                     ) : filteredScanners.length === 0 ? (
-                      <div className="px-3 py-2 text-[11px] text-gray-500">
+                      <div className="px-3 py-2 text-[11px] text-muted-foreground">
                         No users match your search.
                       </div>
                     ) : (
@@ -2738,7 +2738,7 @@ export default function EventsPage() {
                           >
                             <span className="truncate">
                               {user.fullName}
-                              <span className="ml-1 text-[10px] text-gray-500">({user.email})</span>
+                              <span className="ml-1 text-[10px] text-muted-foreground">({user.email})</span>
                             </span>
                             {isSelected && (
                               <span className="ml-2 text-[10px] text-emerald-700 font-medium">Selected</span>
@@ -2783,8 +2783,8 @@ export default function EventsPage() {
 
               {/* Date Range Picker */}
               <div className="space-y-2">
-                <p className="text-sm font-semibold text-gray-800">Event Date</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-sm font-semibold text-foreground">Event Date</p>
+                <p className="text-xs text-muted-foreground">
                   Select the date or date range for this event.
                 </p>
                 <Popover>
@@ -2794,7 +2794,7 @@ export default function EventsPage() {
                       variant="outline"
                       data-empty={!createEventRange?.from}
                       className={cn(
-                        "w-full justify-start text-left font-normal px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm",
+                        "w-full justify-start text-left font-normal px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm",
                         !createEventRange?.from && "text-muted-foreground",
                       )}
                     >
@@ -2827,14 +2827,14 @@ export default function EventsPage() {
 
               {/* Session Configuration */}
               <div className="space-y-2">
-                <p className="text-sm font-semibold text-gray-800">Session Configuration</p>
-                <p className="text-xs text-gray-500 mb-1">
+                <p className="text-sm font-semibold text-foreground">Session Configuration</p>
+                <p className="text-xs text-muted-foreground mb-1">
                   Define the time windows and late thresholds for each attendance session.
                   {eventDates.length > 1 && " Select a date below to configure its sessions."}
                 </p>
 
                 {eventDates.length > 1 && (
-                  <label className="flex items-center gap-2 text-xs text-gray-700">
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Checkbox
                       checked={useSameScheduleForAllDays}
                       onCheckedChange={(checked) => {
@@ -2865,7 +2865,7 @@ export default function EventsPage() {
 
                 {/* Date selector (only shown for multi-day events) */}
                 {eventDates.length > 1 && (
-                  <div className="flex flex-wrap gap-1.5 p-2 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="flex flex-wrap gap-1.5 p-2 bg-muted rounded-lg border border-border/50">
                     {useSameScheduleForAllDays ? (
                       (() => {
                         const first = eventDates[0];
@@ -2919,7 +2919,7 @@ export default function EventsPage() {
                               "inline-flex flex-col items-center px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all min-w-[60px]",
                               isSelected
                                 ? "bg-[#1B4D3E] text-white shadow-sm"
-                                : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200",
+                                : "bg-card text-muted-foreground hover:bg-accent border border-border",
                             )}
                           >
                             <span className="text-[10px] uppercase tracking-wide opacity-70">
@@ -2930,7 +2930,7 @@ export default function EventsPage() {
                               <span
                                 className={cn(
                                   "text-[9px] mt-0.5",
-                                  isSelected ? "text-white/70" : "text-gray-400",
+                                  isSelected ? "text-white/70" : "text-muted-foreground/70",
                                 )}
                               >
                                 {enabledCount} period{enabledCount !== 1 ? "s" : ""}
@@ -2945,7 +2945,7 @@ export default function EventsPage() {
 
                 {/* No date selected message */}
                 {!currentDateConfig && eventDates.length === 0 && (
-                  <div className="p-3 text-xs text-gray-500 border border-dashed border-gray-200 rounded-lg">
+                  <div className="p-3 text-xs text-muted-foreground border border-dashed border-border rounded-lg">
                     Select a date range above to configure sessions.
                   </div>
                 )}
@@ -2970,7 +2970,7 @@ export default function EventsPage() {
                               "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
                               isActive
                                 ? "bg-[#1B4D3E] text-white shadow-sm"
-                                : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+                                : "bg-gray-100 text-muted-foreground hover:bg-accent",
                             )}
                           >
                             <span
@@ -3009,11 +3009,11 @@ export default function EventsPage() {
                     )}
 
                     {/* Sessions list */}
-                    <div className="border border-gray-200 rounded-lg divide-y">
+                    <div className="border border-border rounded-lg divide-y">
                       {currentDateConfig.sessions.filter((session) =>
                         currentDateConfig.enabledPeriods.has(session.period),
                       ).length === 0 && (
-                        <div className="p-3 text-xs text-gray-500">
+                        <div className="p-3 text-xs text-muted-foreground">
                           Select at least one period above to configure sessions.
                         </div>
                       )}
@@ -3030,7 +3030,7 @@ export default function EventsPage() {
                             hasErrors && "bg-red-50/50"
                           )}>
                             <div className="flex items-center justify-between">
-                              <p className="text-xs font-medium text-gray-800">{session.name}</p>
+                              <p className="text-xs font-medium text-foreground">{session.name}</p>
                               <div className="flex items-center gap-2">
                                 {sessionWarnings.length > 0 && (
                                   <Tooltip>
@@ -3059,7 +3059,7 @@ export default function EventsPage() {
                             </div>
                             <div className="grid grid-cols-3 gap-3">
                               <div className="space-y-1">
-                                <label className="block text-[11px] font-medium text-gray-700">
+                                <label className="block text-[11px] font-medium text-muted-foreground">
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <span className="cursor-help underline decoration-dotted underline-offset-2">
@@ -3082,7 +3082,7 @@ export default function EventsPage() {
                                 />
                               </div>
                               <div className="space-y-1">
-                                <label className="block text-[11px] font-medium text-gray-700">
+                                <label className="block text-[11px] font-medium text-muted-foreground">
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <span className="cursor-help underline decoration-dotted underline-offset-2">
@@ -3105,13 +3105,13 @@ export default function EventsPage() {
                                     minuteStep={5}
                                   />
                                 ) : (
-                                  <div className="text-[11px] text-gray-400 border border-dashed border-gray-200 rounded-lg px-3 py-2 bg-gray-50/50">
+                                  <div className="text-[11px] text-muted-foreground/70 border border-dashed border-border rounded-lg px-3 py-2 bg-muted/50">
                                     Not applicable for exit sessions
                                   </div>
                                 )}
                               </div>
                               <div className="space-y-1">
-                                <label className="block text-[11px] font-medium text-gray-700">
+                                <label className="block text-[11px] font-medium text-muted-foreground">
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <span className="cursor-help underline decoration-dotted underline-offset-2">
@@ -3170,8 +3170,8 @@ export default function EventsPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-gray-800">Select Venue</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm font-semibold text-foreground">Select Venue</p>
+                    <p className="text-xs text-muted-foreground">
                       Choose a venue for this event. Availability is based on your selected dates and sessions.
                     </p>
                   </div>
@@ -3180,7 +3180,7 @@ export default function EventsPage() {
                       {isCheckingAvailability && (
                         <span className="h-3 w-3 border-2 border-gray-300 border-t-[#1B4D3E] rounded-full animate-spin" />
                       )}
-                      <Badge variant="outline" className="text-xs bg-gray-50">
+                      <Badge variant="outline" className="text-xs bg-muted">
                         {venueAvailabilitySummary.available} of {venueAvailabilitySummary.total} available
                       </Badge>
                     </div>
@@ -3190,7 +3190,7 @@ export default function EventsPage() {
                 {/* Search bar */}
                 {venueAvailability.length > 3 && (
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/70" />
                     <Input
                       type="text"
                       placeholder="Search venues by name or location..."
@@ -3204,7 +3204,7 @@ export default function EventsPage() {
                 {/* Loading state */}
                 {isCheckingAvailability && venueAvailability.length === 0 && (
                   <div className="flex items-center justify-center py-8">
-                    <div className="flex items-center gap-2 text-gray-500">
+                    <div className="flex items-center gap-2 text-muted-foreground">
                       <span className="h-4 w-4 border-2 border-gray-300 border-t-[#1B4D3E] rounded-full animate-spin" />
                       <span className="text-sm">Checking venue availability...</span>
                     </div>
@@ -3215,7 +3215,7 @@ export default function EventsPage() {
                 {!createEventRange?.from && (
                   <div className="flex flex-col items-center justify-center py-8 text-center">
                     <Building2 className="w-10 h-10 text-gray-300 mb-2" />
-                    <p className="text-sm text-gray-500">Select a date to see available venues</p>
+                    <p className="text-sm text-muted-foreground">Select a date to see available venues</p>
                   </div>
                 )}
 
@@ -3246,11 +3246,11 @@ export default function EventsPage() {
                 {createEventRange?.from && filteredVenues.length === 0 && venueAvailability.length > 0 && (
                   <div className="flex flex-col items-center justify-center py-6 text-center">
                     <Search className="w-8 h-8 text-gray-300 mb-2" />
-                    <p className="text-sm text-gray-500">No venues match your search</p>
+                    <p className="text-sm text-muted-foreground">No venues match your search</p>
                     <button
                       type="button"
                       onClick={() => setVenueSearchQuery("")}
-                      className="text-xs text-[#1B4D3E] hover:underline mt-1"
+                      className="text-xs text-primary hover:underline mt-1"
                     >
                       Clear search
                     </button>
@@ -3276,7 +3276,7 @@ export default function EventsPage() {
                 )}
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-4 mt-2 border-t border-gray-100">
+              <div className="flex items-center justify-end gap-2 pt-4 mt-2 border-t border-border/50">
                 <Button
                   type="button"
                   variant="outline"

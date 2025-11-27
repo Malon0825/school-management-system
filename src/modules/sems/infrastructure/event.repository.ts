@@ -729,9 +729,11 @@ export class EventRepository implements IEventRepository {
     const sessionIds = sessions.map((s) => s.id);
 
     // Count unique students across all sessions
-    const { count, error } = await this.supabase
+    // We need to fetch all student_ids and count distinct ones since Supabase
+    // doesn't support COUNT(DISTINCT column) directly via the JS client
+    const { data: logs, error } = await this.supabase
       .from("attendance_logs")
-      .select("student_id", { count: "exact", head: true })
+      .select("student_id")
       .in("event_session_id", sessionIds);
 
     if (error) {
@@ -739,7 +741,13 @@ export class EventRepository implements IEventRepository {
       return 0;
     }
 
-    return count ?? 0;
+    if (!logs || logs.length === 0) {
+      return 0;
+    }
+
+    // Count unique student IDs
+    const uniqueStudentIds = new Set(logs.map((log) => log.student_id));
+    return uniqueStudentIds.size;
   }
 
   /**
