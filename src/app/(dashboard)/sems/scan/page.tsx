@@ -1,13 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { QrCode, Calendar as CalendarIcon, MapPin, Users } from "lucide-react";
+import { QrCode, Calendar as CalendarIcon, MapPin, Users, MoreHorizontal, Download, Upload } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { scannerDb } from "@/core/offline/scanner-db";
+import { toast } from "sonner";
 
 interface ScannerEventItem {
   id: string;
@@ -19,55 +22,242 @@ interface ScannerEventItem {
   status: "live" | "upcoming" | "completed";
   expectedAttendees: number;
   checkedIn: number;
+  startDate: string;
 }
 
-const MOCK_SCANNER_EVENTS: ScannerEventItem[] = [
-  {
-    id: "evt-1",
-    title: "Morning Assembly",
-    date: "Today",
-    timeRange: "07:00 - 08:00 AM",
-    venue: "Main Grounds",
-    role: "Lead Scanner",
-    status: "live",
-    expectedAttendees: 500,
-    checkedIn: 432,
-  },
-  {
-    id: "evt-2",
-    title: "Grade 10 Science Fair",
-    date: "Today",
-    timeRange: "09:00 - 11:00 AM",
-    venue: "Science Wing",
-    role: "Entrance Scanner",
-    status: "upcoming",
-    expectedAttendees: 150,
-    checkedIn: 0,
-  },
-  {
-    id: "evt-3",
-    title: "Faculty Assembly",
-    date: "Tomorrow",
-    timeRange: "02:00 - 03:00 PM",
-    venue: "AV Room",
-    role: "Backup Scanner",
-    status: "upcoming",
-    expectedAttendees: 60,
-    checkedIn: 0,
-  },
-];
+type ApiEventStatus = "live" | "scheduled" | "completed";
+
+interface ApiEventListItemDto {
+  id: string;
+  title: string;
+  timeRange: string;
+  venue: string | null;
+  actualAttendees: number;
+  expectedAttendees: number;
+  status: ApiEventStatus;
+  startDate: string;
+  endDate: string;
+}
+
+function mapApiStatusToScannerStatus(status: ApiEventStatus): ScannerEventItem["status"] {
+  if (status === "live") return "live";
+  if (status === "completed") return "completed";
+  return "upcoming";
+}
+
+function formatDateLabel(startDate: string): string {
+  if (!startDate) return "—";
+
+  const today = new Date();
+  const todayIso = today.toISOString().slice(0, 10);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  const tomorrowIso = tomorrow.toISOString().slice(0, 10);
+
+  if (startDate === todayIso) return "Today";
+  if (startDate === tomorrowIso) return "Tomorrow";
+
+  const parsed = new Date(startDate);
+  if (Number.isNaN(parsed.getTime())) {
+    return startDate;
+  }
+
+  return parsed.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
 
 export default function ScannerEventsPage() {
   const router = useRouter();
+  const [events, setEvents] = useState<ScannerEventItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  const [downloadingEventId, setDownloadingEventId] = useState<string | null>(null);
+
+  const loadEvents = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const params = new URLSearchParams();
+      params.set("page", "1");
+      params.set("pageSize", "50");
+
+      const trimmedSearch = appliedSearch.trim();
+      if (trimmedSearch) {
+        params.set("search", trimmedSearch);
+      }
+
+      const response = await fetch(`/api/sems/events/scanner?${params.toString()}`);
+
+      let body: any = null;
+      try {
+        body = await response.json();
+      } catch {
+        // ignore JSON parse errors; will handle via status
+      }
+
+      if (!response.ok) {
+        const message =
+          body?.error?.message ??
+          `Failed to load scanner events (status ${response.status}).`;
+        throw new Error(message);
+      }
+
+      const apiEvents = (body?.data?.events ?? []) as ApiEventListItemDto[];
+
+      const mappedEvents: ScannerEventItem[] = apiEvents.map((event) => {
+        const status = mapApiStatusToScannerStatus(event.status);
+        const startDate = event.startDate ?? "";
+
+        return {
+          id: event.id,
+          title: event.title,
+          date: formatDateLabel(startDate),
+          timeRange: event.timeRange,
+          venue: event.venue ?? "TBA",
+          role: "Scanner",
+          status,
+          expectedAttendees: event.expectedAttendees ?? 0,
+          checkedIn: event.actualAttendees ?? 0,
+          startDate,
+        };
+      });
+
+      setEvents(mappedEvents);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Unable to load scanner events.";
+      setError(message);
+      setEvents([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [appliedSearch]);
+
+  useEffect(() => {
+    void loadEvents();
+  }, [loadEvents]);
 
   const stats = useMemo(() => {
-    const total = MOCK_SCANNER_EVENTS.length;
-    const live = MOCK_SCANNER_EVENTS.filter((e) => e.status === "live").length;
-    const upcoming = MOCK_SCANNER_EVENTS.filter((e) => e.status === "upcoming").length;
-    const completed = MOCK_SCANNER_EVENTS.filter((e) => e.status === "completed").length;
+    const todayIso = new Date().toISOString().slice(0, 10);
 
-    return { total, live, upcoming, completed };
-  }, []);
+    let live = 0;
+    let upcoming = 0;
+    let completed = 0;
+    let today = 0;
+    let totalCheckIns = 0;
+
+    for (const event of events) {
+      totalCheckIns += event.checkedIn;
+
+      if (event.startDate === todayIso) {
+        today += 1;
+      }
+
+      if (event.status === "live") {
+        live += 1;
+      } else if (event.status === "completed") {
+        completed += 1;
+      } else {
+        upcoming += 1;
+      }
+    }
+
+    return {
+      total: events.length,
+      live,
+      upcoming,
+      completed,
+      today,
+      totalCheckIns,
+    };
+  }, [events]);
+
+  const handleDownloadEventData = useCallback(
+    async (eventItem: ScannerEventItem) => {
+      setDownloadingEventId(eventItem.id);
+
+      try {
+        const response = await fetch(`/api/sems/events/${eventItem.id}/scanner-resources`);
+
+        let body: any = null;
+        try {
+          body = await response.json();
+        } catch {
+          body = null;
+        }
+
+        if (!response.ok || body?.success === false) {
+          const message =
+            body?.error?.message ??
+            `Failed to download scanner data (status ${response.status}).`;
+          toast.error(message);
+          return;
+        }
+
+        const payload = body?.data ?? body;
+        const apiEvent = payload?.event;
+        const students = (payload?.students ?? []) as any[];
+
+        if (!apiEvent || !Array.isArray(students)) {
+          toast.error("Invalid scanner data received from server.");
+          return;
+        }
+
+        const nowIso = new Date().toISOString();
+
+        await scannerDb.transaction(
+          "rw",
+          scannerDb.scannerEvents,
+          scannerDb.allowedStudents,
+          async () => {
+            await scannerDb.scannerEvents.put({
+              id: apiEvent.id,
+              title: apiEvent.title,
+              venue: apiEvent.facilityName ?? eventItem.venue ?? null,
+              timeRange: eventItem.timeRange,
+              startDate: apiEvent.startDate,
+              endDate: apiEvent.endDate,
+              sessionConfig: apiEvent.sessionConfig,
+              scannerUserId: "current",
+              downloadedAt: nowIso,
+            });
+
+            await scannerDb.allowedStudents.where("eventId").equals(apiEvent.id).delete();
+
+            const rows = students.map((student) => ({
+              eventId: apiEvent.id,
+              studentId: student.id,
+              qrHash: student.qrHash ?? student.qr_hash,
+              fullName: student.fullName ?? `${(student.firstName ?? "").trim()} ${(student.lastName ?? "").trim()}`.trim(),
+              lrn: student.lrn ?? "",
+              grade: student.levelName ?? "",
+              section: student.sectionName ?? "",
+            }));
+
+            if (rows.length > 0) {
+              await scannerDb.allowedStudents.bulkAdd(rows);
+            }
+          }
+        );
+
+        toast.success("Scanner data downloaded", {
+          description: `${students.length.toLocaleString()} students cached for ${eventItem.title}.`,
+        });
+      } catch (downloadError) {
+        // eslint-disable-next-line no-console
+        console.error("[ScannerEventsPage] Failed to download scanner data", downloadError);
+        toast.error("Unable to download scanner data. Please try again.");
+      } finally {
+        setDownloadingEventId(null);
+      }
+    },
+    []
+  );
 
   return (
     <div className="flex-1 flex flex-col space-y-6 min-h-0">
@@ -86,13 +276,6 @@ export default function ScannerEventsPage() {
             </p>
           </div>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <Input
-            type="search"
-            placeholder="Search events by title or venue..."
-            className="h-9 w-full sm:w-64 bg-white"
-          />
-        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -106,7 +289,9 @@ export default function ScannerEventsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
-            <p className="text-2xl font-semibold text-emerald-900">2</p>
+            <p className="text-2xl font-semibold text-emerald-900">
+              {stats.today}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -119,7 +304,9 @@ export default function ScannerEventsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
-            <p className="text-2xl font-semibold text-gray-900">432</p>
+            <p className="text-2xl font-semibold text-gray-900">
+              {stats.totalCheckIns.toLocaleString()}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -132,7 +319,9 @@ export default function ScannerEventsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
-            <p className="text-2xl font-semibold text-gray-900">{stats.upcoming}</p>
+            <p className="text-2xl font-semibold text-gray-900">
+              {stats.upcoming}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -145,37 +334,62 @@ export default function ScannerEventsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
-            <p className="text-2xl font-semibold text-gray-900">{stats.total}</p>
+            <p className="text-2xl font-semibold text-gray-900">
+              {stats.total}
+            </p>
           </CardContent>
         </Card>
       </div>
 
       <Card className="flex-1 flex flex-col min-h-0">
-        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle className="text-base font-semibold text-gray-900">
               Events you will scan
             </CardTitle>
             <CardDescription className="text-sm text-gray-500">
-              This is a UI-only view for now. Later, this table will be populated from SEMS event
-              assignments where you are configured as a scanner.
+              These are events where you are configured as a scanner. Use search to quickly find a
+              specific assignment.
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-200">
-              {stats.live} live
-            </Badge>
-            <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-200">
-              {stats.upcoming} upcoming
-            </Badge>
-            <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
-              {stats.completed} completed
-            </Badge>
+          <div className="flex flex-col gap-2 sm:items-end">
+            <Input
+              type="search"
+              placeholder="Search events by title or venue..."
+              className="h-9 w-full sm:w-64 bg-white"
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  setAppliedSearch(searchInput);
+                }
+              }}
+            />
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <Badge
+                variant="outline"
+                className="bg-emerald-50 text-emerald-800 border-emerald-200"
+              >
+                {stats.live} live
+              </Badge>
+              <Badge
+                variant="outline"
+                className="bg-blue-50 text-blue-800 border-blue-200"
+              >
+                {stats.upcoming} upcoming
+              </Badge>
+              <Badge
+                variant="outline"
+                className="bg-gray-50 text-gray-700 border-gray-200"
+              >
+                {stats.completed} completed
+              </Badge>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col min-h-0 pt-0">
           <div className="mt-3 rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
-            <div className="max-h-[480px] overflow-y-auto">
+            <div className="max-h-[480px] overflow-y-auto p-4">
               <Table>
                 <TableHeader className="bg-gray-50/80">
                   <TableRow className="border-gray-100">
@@ -188,19 +402,62 @@ export default function ScannerEventsPage() {
                     <TableHead className="w-[20%] text-xs font-semibold text-gray-500">
                       Venue
                     </TableHead>
-                    <TableHead className="w-[10%] text-xs font-semibold text-gray-500 text-center">
-                      Role
-                    </TableHead>
                     <TableHead className="w-[10%] text-xs font-semibold text-gray-500 text-right">
                       Attendance
+                    </TableHead>
+                    <TableHead className="w-[10%] text-xs font-semibold text-gray-500 text-right">
+                      Actions
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {MOCK_SCANNER_EVENTS.map((event) => (
+                  {loading && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={5}
+                        className="py-8 text-center text-sm text-gray-500"
+                      >
+                        Loading scanner events...
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {!loading && error && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={5}
+                        className="py-6 text-center text-sm text-red-600"
+                      >
+                        <div className="flex flex-col items-center gap-2">
+                          <span>{error}</span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              void loadEvents();
+                            }}
+                          >
+                            Retry
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {!loading && !error && events.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={5}
+                        className="py-8 text-center text-sm text-gray-500"
+                      >
+                        No scanner events found yet.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {!loading &&
+                    !error &&
+                    events.map((event) => (
                     <TableRow
                       key={event.id}
-                      onClick={() => router.push(`/sems/scan/${event.id}`)}
+                      onClick={() => router.push(`/sems/scan/${event.id}?autostart=1`)}
                       className="border-gray-100 hover:bg-emerald-50/40 cursor-pointer transition-colors"
                     >
                       <TableCell className="align-top py-3">
@@ -234,11 +491,6 @@ export default function ScannerEventsPage() {
                           {event.venue}
                         </span>
                       </TableCell>
-                      <TableCell className="align-top py-3 text-center">
-                        <Badge variant="outline" className="text-[11px] px-2 py-0.5">
-                          {event.role}
-                        </Badge>
-                      </TableCell>
                       <TableCell className="align-top py-3 text-right text-sm text-gray-700">
                         <span className="font-semibold text-gray-900">
                           {event.checkedIn.toLocaleString()}
@@ -246,6 +498,42 @@ export default function ScannerEventsPage() {
                         <span className="ml-1 text-xs text-gray-500">
                           / {event.expectedAttendees.toLocaleString()}
                         </span>
+                      </TableCell>
+                      <TableCell className="align-top py-3 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                              }}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-44 rounded-lg border border-gray-200 shadow-lg"
+                          >
+                            <DropdownMenuItem
+                              className="gap-2 text-sm text-gray-700 cursor-pointer"
+                              disabled={downloadingEventId === event.id}
+                              onClick={(menuEvent) => {
+                                menuEvent.stopPropagation();
+                                void handleDownloadEventData(event);
+                              }}
+                            >
+                              <Download className="h-4 w-4" />
+                              Download data
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="gap-2 text-sm text-gray-700 cursor-pointer">
+                              <Upload className="h-4 w-4" />
+                              Upload data
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}

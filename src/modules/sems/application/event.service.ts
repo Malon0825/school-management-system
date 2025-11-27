@@ -189,6 +189,94 @@ export class EventService implements IEventService {
     };
   }
 
+  async listScannerEvents(
+    scannerId: string,
+    options?: ListEventsOptions
+  ): Promise<EventListResponseDto> {
+    const repo = this.eventRepository as EventRepository;
+    const page = options?.page ?? 1;
+    const pageSize = options?.pageSize ?? 50;
+
+    const { events: rawEvents, total } = await repo.findAllForScanner(scannerId, {
+      page,
+      pageSize,
+      facilityId: options?.facilityId,
+      searchTerm: options?.searchTerm,
+    });
+
+    const totalActiveStudents = await repo.countActiveStudents();
+
+    const allLevelIds = new Set<string>();
+    for (const event of rawEvents) {
+      const config = event.target_audience as EventAudienceConfig;
+      if (config?.rules) {
+        for (const rule of config.rules) {
+          if (rule.kind === "LEVEL" && "levelIds" in rule) {
+            rule.levelIds.forEach((id) => allLevelIds.add(id));
+          }
+        }
+      }
+    }
+
+    const levelNames = await repo.getLevelNames(Array.from(allLevelIds));
+
+    const events: EventListItemDto[] = await Promise.all(
+      rawEvents.map(async (event) => {
+        const audienceConfig = event.target_audience as EventAudienceConfig;
+        const sessionConfig = event.session_config as EventSessionConfig;
+        const scannerConfig = event.scanner_assignments as EventScannerConfig;
+        const startDate = event.start_date ?? event.event_date ?? "";
+        const endDate = event.end_date ?? event.start_date ?? event.event_date ?? "";
+
+        const timeRange = this.computeTimeRange(sessionConfig);
+        const audienceSummary = this.computeAudienceSummary(audienceConfig, levelNames);
+
+        const scannerIds = Array.isArray(scannerConfig?.scannerIds)
+          ? scannerConfig.scannerIds
+          : [];
+        let scannerSummary = "No scanners";
+        if (scannerIds.length === 1) {
+          scannerSummary = "1 scanner";
+        } else if (scannerIds.length > 1) {
+          scannerSummary = `${scannerIds.length} scanners`;
+        }
+
+        const expectedAttendees = await this.computeExpectedAttendees(
+          audienceConfig,
+          totalActiveStudents,
+          repo
+        );
+
+        const actualAttendees = await repo.countEventAttendees(event.id);
+        const status = this.computeEventStatus(startDate, endDate, sessionConfig);
+
+        return {
+          id: event.id,
+          title: event.title,
+          timeRange,
+          venue: event.facilities?.name ?? null,
+          audienceSummary,
+          scannerSummary,
+          actualAttendees,
+          expectedAttendees,
+          status,
+          startDate,
+          endDate,
+        };
+      })
+    );
+
+    return {
+      events,
+      pagination: {
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    };
+  }
+
   /**
    * Compute time range string from session config.
    *

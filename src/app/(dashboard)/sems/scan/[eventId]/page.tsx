@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Zap,
@@ -16,6 +16,14 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import {
+  scannerDb,
+  type ScannerEventRecord,
+  type AllowedStudentRecord,
+  type ScanQueueRecord,
+  type ScanStatus,
+} from "@/core/offline/scanner-db";
+import { BrowserQRCodeReader } from "@zxing/browser";
 
 // Mock event data
 const MOCK_EVENT = {
@@ -38,25 +46,34 @@ interface ScannedStudent {
   scannedAt: string;
 }
 
-const MOCK_SCANNED_STUDENT: ScannedStudent = {
-  id: "stu-1",
-  name: "Juan Dela Cruz",
-  lrn: "123456789012",
-  grade: "Grade 10",
-  section: "Section A",
-  avatarUrl: null,
-  status: "success",
-  message: "Check-in recorded",
-  scannedAt: "7:32 AM",
-};
-
 export default function EventScannerPage() {
   const router = useRouter();
   const params = useParams();
   const eventId = params.eventId as string;
+  const searchParams = useSearchParams();
+  const autoStart = searchParams.get("autostart") === "1";
 
   const [flashOn, setFlashOn] = useState(false);
-  const [lastScan, setLastScan] = useState<ScannedStudent | null>(MOCK_SCANNED_STUDENT);
+  const [lastScan, setLastScan] = useState<ScannedStudent | null>(null);
+  const [eventRecord, setEventRecord] = useState<ScannerEventRecord | null>(null);
+  const [isLoadingResources, setIsLoadingResources] = useState(true);
+  const [allowedStudentCount, setAllowedStudentCount] = useState(0);
+  const [scanStats, setScanStats] = useState({
+    totalScanned: 0,
+    totalLate: 0,
+    totalDenied: 0,
+    totalDuplicates: 0,
+  });
+  const [isCameraSupported, setIsCameraSupported] = useState<boolean | null>(null);
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const isScanningRef = useRef(false);
+  const lastScanValueRef = useRef<string | null>(null);
+  const lastScanTimeRef = useRef<number>(0);
+  const scanningModeRef = useRef<"native" | "zxing" | null>(null);
+  const zxingReaderRef = useRef<BrowserQRCodeReader | null>(null);
 
   // Status styling
   const getStatusStyles = (status: ScannedStudent["status"]) => {
@@ -96,78 +113,425 @@ export default function EventScannerPage() {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-gradient-to-b from-[#052019] via-[#020817] to-[#020817]">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-2">
-        <button
-          type="button"
-          onClick={() => router.push("/sems/scan")}
-          className="flex items-center justify-center w-10 h-10 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-          aria-label="Go back"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
+  useEffect(() => {
+    let isCancelled = false;
 
-        <div className="flex-1 text-center px-4">
-          <h1 className="text-sm font-semibold text-white truncate">
-            {MOCK_EVENT.title}
-          </h1>
-          <p className="text-[11px] text-white/70">{MOCK_EVENT.venue}</p>
+    async function loadResources() {
+      if (!eventId) {
+        setIsLoadingResources(false);
+        setEventRecord(null);
+        setAllowedStudentCount(0);
+        return;
+      }
+
+      setIsLoadingResources(true);
+
+      try {
+        const record = await scannerDb.scannerEvents.get(eventId);
+
+        if (isCancelled) return;
+
+        setEventRecord(record ?? null);
+
+        if (record) {
+          const count = await scannerDb.allowedStudents.where("eventId").equals(eventId).count();
+          if (!isCancelled) {
+            setAllowedStudentCount(count);
+          }
+        } else if (!isCancelled) {
+          setAllowedStudentCount(0);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingResources(false);
+        }
+      }
+    }
+
+    void loadResources();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [eventId]);
+
+  function mapScanStatusToUiStatus(status: ScanStatus): ScannedStudent["status"] {
+    if (status === "PRESENT") return "success";
+    if (status === "LATE") return "late";
+    if (status === "DUPLICATE") return "already_scanned";
+    return "not_allowed";
+  }
+
+  function buildScanMessage(status: ScanStatus, baseReason: string | null | undefined): string {
+    if (baseReason && baseReason.trim().length > 0) return baseReason;
+    if (status === "PRESENT") return "Check-in recorded";
+    if (status === "LATE") return "Marked as late";
+    if (status === "DUPLICATE") return "Already scanned for this event";
+    return "Scan not allowed for this event";
+  }
+
+  function formatScanTimeLabel(iso: string): string {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  async function processScan(rawValue: string) {
+    const trimmed = rawValue.trim();
+    if (!trimmed) return;
+
+    let scanStatus: ScanStatus;
+    let reason: string | null = null;
+    let studentRecord: AllowedStudentRecord | null = null;
+
+    // Query IndexedDB directly to avoid stale closure issues with React state
+    const currentEventRecord = eventRecord ?? (await scannerDb.scannerEvents.get(eventId));
+
+    if (!currentEventRecord) {
+      scanStatus = "DENIED";
+      reason = "Scanner resources are not available on this device.";
+    } else {
+      const lookupResult = await scannerDb.allowedStudents
+        .where("[eventId+qrHash]")
+        .equals([eventId, trimmed])
+        .first();
+
+      studentRecord = lookupResult ?? null;
+
+      if (!studentRecord) {
+        scanStatus = "DENIED";
+        reason = "Student is not in the allowed list for this event.";
+      } else {
+        const existing = await scannerDb.scanQueue
+          .where("eventId")
+          .equals(eventId)
+          .and((row: ScanQueueRecord) => row.studentId === studentRecord!.studentId)
+          .first();
+
+        if (existing) {
+          scanStatus = "DUPLICATE";
+          reason = "Already scanned for this event.";
+        } else {
+          scanStatus = "PRESENT";
+          reason = null;
+        }
+      }
+    }
+
+    const nowIso = new Date().toISOString();
+    const scanId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `scan_${Date.now()}`;
+
+    const studentIdForRow = studentRecord?.studentId ?? "";
+
+    await scannerDb.scanQueue.put({
+      id: scanId,
+      eventId,
+      studentId: studentIdForRow,
+      qrHash: trimmed,
+      scannedAt: nowIso,
+      status: scanStatus,
+      reason,
+      sessionId: null,
+      sessionName: null,
+      sessionDirection: null,
+      syncStatus: "pending",
+      createdAt: nowIso,
+    });
+
+    const uiStatus = mapScanStatusToUiStatus(scanStatus);
+    const message = buildScanMessage(scanStatus, reason);
+    const timeLabel = formatScanTimeLabel(nowIso);
+
+    setLastScan({
+      id: studentIdForRow,
+      name: studentRecord?.fullName ?? "Unknown student",
+      lrn: studentRecord?.lrn ?? "",
+      grade: studentRecord?.grade ?? "",
+      section: studentRecord?.section ?? "",
+      avatarUrl: null,
+      status: uiStatus,
+      message,
+      scannedAt: timeLabel,
+    });
+
+    setScanStats((prev) => {
+      const next = { ...prev };
+
+      switch (scanStatus) {
+        case "PRESENT":
+          next.totalScanned += 1;
+          break;
+        case "LATE":
+          next.totalScanned += 1;
+          next.totalLate += 1;
+          break;
+        case "DENIED":
+          next.totalDenied += 1;
+          break;
+        case "DUPLICATE":
+          next.totalDuplicates += 1;
+          break;
+      }
+
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    const hasMedia =
+      typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
+    setIsCameraSupported(hasMedia);
+
+    // Always start camera when component mounts (if camera is supported)
+    if (hasMedia) {
+      void startScanning();
+    }
+
+    return () => {
+      void stopScanning();
+    };
+  }, []);
+
+  async function stopScanning() {
+    isScanningRef.current = false;
+    lastScanValueRef.current = null;
+    lastScanTimeRef.current = 0;
+
+    if (scanningModeRef.current === "native") {
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+
+      if (streamRef.current) {
+        for (const track of streamRef.current.getTracks()) {
+          track.stop();
+        }
+        streamRef.current = null;
+      }
+    }
+
+    if (scanningModeRef.current === "zxing" && zxingReaderRef.current) {
+      // decodeFromVideoDevice is stopped via controls.stop() in the callback;
+      // we only need to clear the reader reference here.
+      zxingReaderRef.current = null;
+    }
+
+    scanningModeRef.current = null;
+  }
+
+  async function startScanning() {
+    if (isScanningRef.current) return;
+
+    const BarcodeDetectorCtor = (typeof window !== "undefined"
+      ? (window as any).BarcodeDetector
+      : undefined) as
+      | (new (options: { formats: string[] }) => {
+          detect: (source: CanvasImageSource) => Promise<Array<{ rawValue: string }>>;
+        })
+      | undefined;
+
+    if (BarcodeDetectorCtor && typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+          audio: false,
+        });
+
+        const video = videoRef.current;
+        if (!video) {
+          for (const track of stream.getTracks()) {
+            track.stop();
+          }
+          return;
+        }
+
+        streamRef.current = stream;
+        video.srcObject = stream;
+        await video.play().catch(() => undefined);
+
+        const detector = new BarcodeDetectorCtor({ formats: ["qr_code"] });
+        isScanningRef.current = true;
+        scanningModeRef.current = "native";
+
+        const scanLoop = async () => {
+          if (!isScanningRef.current) return;
+
+          if (video.readyState >= 2) {
+            try {
+              const results = await detector.detect(video as unknown as CanvasImageSource);
+              if (results && results.length > 0) {
+                const value = results[0]?.rawValue ?? "";
+                const now = Date.now();
+                const lastValue = lastScanValueRef.current;
+                const lastTime = lastScanTimeRef.current;
+
+                if (value && (value !== lastValue || now - lastTime > 1000)) {
+                  lastScanValueRef.current = value;
+                  lastScanTimeRef.current = now;
+                  void processScan(value);
+                }
+              }
+            } catch {
+            }
+          }
+
+          animationFrameRef.current = requestAnimationFrame(scanLoop);
+        };
+
+        animationFrameRef.current = requestAnimationFrame(scanLoop);
+      } catch {
+        await stopScanning();
+      }
+
+      return;
+    }
+
+    try {
+      const video = videoRef.current;
+      if (!video) return;
+
+      const reader = new BrowserQRCodeReader();
+      zxingReaderRef.current = reader;
+      isScanningRef.current = true;
+      scanningModeRef.current = "zxing";
+
+      await reader.decodeFromVideoDevice(undefined, video, (result, err, controls) => {
+        if (!isScanningRef.current) {
+          controls.stop();
+          return;
+        }
+
+        if (result) {
+          const value = result.getText();
+          const now = Date.now();
+          const lastValue = lastScanValueRef.current;
+          const lastTime = lastScanTimeRef.current;
+
+          if (value && (value !== lastValue || now - lastTime > 1000)) {
+            lastScanValueRef.current = value;
+            lastScanTimeRef.current = now;
+            void processScan(value);
+          }
+        }
+      });
+    } catch {
+      await stopScanning();
+    }
+  }
+
+  const headerTitle = eventRecord?.title ?? MOCK_EVENT.title;
+  const headerVenue = eventRecord?.venue ?? MOCK_EVENT.venue;
+  const remainingAllowed =
+    allowedStudentCount > 0 ? Math.max(allowedStudentCount - scanStats.totalScanned, 0) : 0;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black">
+      <video
+        ref={videoRef}
+        className="absolute inset-0 w-full h-full object-cover"
+        muted
+        playsInline
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/10 to-black/80" />
+      <div className="relative z-10 flex h-full flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 pt-4 pb-2">
+          <button
+            type="button"
+            onClick={() => router.push("/sems/scan")}
+            className="flex items-center justify-center w-10 h-10 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+            aria-label="Go back"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+
+          <div className="flex-1 text-center px-4">
+            <h1 className="text-sm font-semibold text-white truncate">
+              {headerTitle}
+            </h1>
+            <p className="text-[11px] text-white/70">{headerVenue}</p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setFlashOn((prev) => !prev);
+            }}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium shadow-sm transition-colors",
+              flashOn
+                ? "bg-amber-400 text-amber-900"
+                : "bg-[#1B4D3E]/90 text-emerald-50 hover:bg-[#16352A]"
+            )}
+          >
+            {flashOn ? <Zap className="w-3.5 h-3.5" /> : <ZapOff className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">{flashOn ? "Flash on" : "Flash off"}</span>
+          </button>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setFlashOn(!flashOn)}
-          className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium shadow-sm transition-colors",
-            flashOn
-              ? "bg-amber-400 text-amber-900"
-              : "bg-[#1B4D3E]/90 text-emerald-50 hover:bg-[#16352A]"
-          )}
-        >
-          {flashOn ? <Zap className="w-3.5 h-3.5" /> : <ZapOff className="w-3.5 h-3.5" />}
-          <span className="hidden sm:inline">{flashOn ? "Flash on" : "Flash off"}</span>
-        </button>
-      </div>
+        {/* Camera Viewfinder Area */}
+        <div className="flex-1 relative flex items-center justify-center px-4">
+          {/* Scan frame */}
+          <div className="relative w-64 h-64 sm:w-72 sm:h-72">
+            {/* Corner brackets */}
+            <div className="absolute top-0 left-0 w-12 h-12 border-t-4 border-l-4 border-white rounded-tl-2xl" />
+            <div className="absolute top-0 right-0 w-12 h-12 border-t-4 border-r-4 border-white rounded-tr-2xl" />
+            <div className="absolute bottom-0 left-0 w-12 h-12 border-b-4 border-l-4 border-white rounded-bl-2xl" />
+            <div className="absolute bottom-0 right-0 w-12 h-12 border-b-4 border-r-4 border-white rounded-br-2xl" />
+            {/* Scanning line animation */}
+            <div className="scan-line absolute inset-x-4 h-0.5 bg-emerald-400 opacity-90 shadow-[0_0_12px_rgba(16,185,129,0.8)]" />
+          </div>
 
-      {/* Camera Viewfinder Area */}
-      <div className="flex-1 relative flex items-center justify-center overflow-hidden">
-        {/* Simulated camera background */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#031B14] via-[#020817] to-[#020817]" />
-
-        {/* Scan frame */}
-        <div className="relative z-10 w-64 h-64 sm:w-72 sm:h-72">
-          {/* Corner brackets */}
-          <div className="absolute top-0 left-0 w-12 h-12 border-t-4 border-l-4 border-white rounded-tl-2xl" />
-          <div className="absolute top-0 right-0 w-12 h-12 border-t-4 border-r-4 border-white rounded-tr-2xl" />
-          <div className="absolute bottom-0 left-0 w-12 h-12 border-b-4 border-l-4 border-white rounded-bl-2xl" />
-          <div className="absolute bottom-0 right-0 w-12 h-12 border-b-4 border-r-4 border-white rounded-br-2xl" />
-
-          {/* Scanning line animation */}
-          <div className="absolute inset-x-4 top-1/2 h-0.5 bg-emerald-400 animate-pulse opacity-90 shadow-[0_0_12px_rgba(16,185,129,0.8)]" />
-
-          {/* Center crosshair */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-8 h-8 border-2 border-white/40 rounded-lg" />
+          <div className="absolute bottom-8 left-0 right-0 px-8 text-center">
+            <p className="text-sm text-white/80 font-medium">
+              Point camera at student's QR code
+              Point camera at student&apos;s QR code
+            </p>
+            <p className="text-xs text-white/50 mt-1">
+              Position QR code within the frame
+            </p>
+            {isCameraSupported === false && (
+              <p className="text-[10px] text-red-300 mt-1">
+                Camera-based scanning is not supported in this browser. Please try a different
+                device or browser that supports camera access.
+              </p>
+            )}
           </div>
         </div>
 
-        {/* Instructions */}
-        <div className="absolute bottom-8 left-0 right-0 text-center">
-          <p className="text-sm text-white/80 font-medium">
-            Point camera at student&apos;s QR code
-          </p>
-          <p className="text-xs text-white/50 mt-1">
-            Position QR code within the frame
-          </p>
-        </div>
-      </div>
+        {/* Bottom Student Info Card - floating panel */}
+        <div className="pointer-events-none px-4 pb-6">
+          <div className="bg-white rounded-3xl shadow-2xl border border-emerald-100 max-w-md mx-auto w-full pointer-events-auto">
+        {!isLoadingResources && !eventRecord ? (
+          <div className="p-6 text-center">
+            {/* Drag handle */}
+            <div className="flex justify-center mb-4">
+              <div className="w-10 h-1 bg-gray-300 rounded-full" />
+            </div>
 
-      {/* Bottom Student Info Card - floating panel */}
-      <div className="pointer-events-none px-4 pb-6">
-        <div className="bg-white rounded-3xl shadow-2xl border border-emerald-100 max-w-md mx-auto w-full pointer-events-auto">
-        {lastScan ? (
+            <div className="py-6">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-50 flex items-center justify-center border border-amber-200">
+                <AlertCircle className="w-8 h-8 text-amber-500" />
+              </div>
+              <p className="text-sm text-gray-800 font-semibold">
+                Scanner resources missing
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Download event data on the previous screen to enable fast offline scanning.
+              </p>
+              <p className="text-xs text-gray-400 mt-2">
+                Expected attendees data will appear here once resources are cached.
+              </p>
+            </div>
+          </div>
+        ) : lastScan ? (
           <div className="p-4 sm:p-5">
             {/* Drag handle */}
             <div className="flex justify-center mb-3">
@@ -241,21 +605,25 @@ export default function EventScannerPage() {
               );
             })()}
 
-            {/* Quick Stats Row */}
             <div className="grid grid-cols-3 gap-2 mt-4">
               <div className="bg-gray-50 rounded-xl p-3 text-center">
-                <p className="text-lg sm:text-xl font-bold text-gray-900">127</p>
+                <p className="text-lg sm:text-xl font-bold text-gray-900">
+                  {scanStats.totalScanned}
+                </p>
                 <p className="text-[10px] sm:text-xs text-gray-500">Scanned</p>
               </div>
               <div className="bg-gray-50 rounded-xl p-3 text-center">
-                <p className="text-lg sm:text-xl font-bold text-amber-600">12</p>
+                <p className="text-lg sm:text-xl font-bold text-amber-600">
+                  {scanStats.totalLate}
+                </p>
                 <p className="text-[10px] sm:text-xs text-gray-500">Late</p>
               </div>
               <div className="bg-gray-50 rounded-xl p-3 text-center">
-                <p className="text-lg sm:text-xl font-bold text-gray-900">373</p>
+                <p className="text-lg sm:text-xl font-bold text-gray-900">{remainingAllowed}</p>
                 <p className="text-[10px] sm:text-xs text-gray-500">Remaining</p>
               </div>
             </div>
+            {/* Manual QR hash input removed: scanning is camera-only now. */}
           </div>
         ) : (
           <div className="p-6 text-center">
@@ -276,25 +644,47 @@ export default function EventScannerPage() {
               </p>
             </div>
 
-            {/* Quick Stats Row */}
             <div className="grid grid-cols-3 gap-2 mt-4">
               <div className="bg-gray-50 rounded-xl p-3 text-center">
-                <p className="text-lg sm:text-xl font-bold text-gray-900">0</p>
+                <p className="text-lg sm:text-xl font-bold text-gray-900">
+                  {scanStats.totalScanned}
+                </p>
                 <p className="text-[10px] sm:text-xs text-gray-500">Scanned</p>
               </div>
               <div className="bg-gray-50 rounded-xl p-3 text-center">
-                <p className="text-lg sm:text-xl font-bold text-amber-600">0</p>
+                <p className="text-lg sm:text-xl font-bold text-amber-600">
+                  {scanStats.totalLate}
+                </p>
                 <p className="text-[10px] sm:text-xs text-gray-500">Late</p>
               </div>
               <div className="bg-gray-50 rounded-xl p-3 text-center">
-                <p className="text-lg sm:text-xl font-bold text-gray-900">500</p>
+                <p className="text-lg sm:text-xl font-bold text-gray-900">{remainingAllowed}</p>
                 <p className="text-[10px] sm:text-xs text-gray-500">Remaining</p>
               </div>
             </div>
+            {/* Manual QR hash input removed: scanning is camera-only now. */}
           </div>
         )}
+          </div>
         </div>
       </div>
+      <style jsx>{`
+        .scan-line {
+          top: 14%;
+          animation: scan-line 1.6s ease-in-out infinite alternate;
+        }
+
+        @keyframes scan-line {
+          0% {
+            top: 14%;
+            opacity: 1;
+          }
+          100% {
+            top: 78%;
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
   );
 }

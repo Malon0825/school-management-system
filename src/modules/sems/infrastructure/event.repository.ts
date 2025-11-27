@@ -333,7 +333,6 @@ export class EventRepository implements IEventRepository {
       console.error("[EventRepository.facilityExists] Database error:", error);
       return false;
     }
-
     return !!data;
   }
 
@@ -390,7 +389,6 @@ export class EventRepository implements IEventRepository {
     if (options?.searchTerm) {
       query = query.ilike("title", `%${options.searchTerm}%`);
     }
-
     const { data, error, count } = await query;
 
     if (error) {
@@ -412,10 +410,83 @@ export class EventRepository implements IEventRepository {
   }
 
   /**
-   * Count all active students in the system.
+   * Find all events where a specific scanner is assigned.
    *
-   * @returns Total count of active students
+   * @param scannerId - App user ID of the scanner
+   * @param options - Query options (pagination, filters)
+   * @returns Array of events with facility data for this scanner
    */
+  async findAllForScanner(
+    scannerId: string,
+    options?: {
+      page?: number;
+      pageSize?: number;
+      facilityId?: string;
+      searchTerm?: string;
+    }
+  ): Promise<{ events: EventWithFacilityRow[]; total: number }> {
+    const page = options?.page ?? 1;
+    const pageSize = options?.pageSize ?? 50;
+    const offset = (page - 1) * pageSize;
+
+    let query = this.supabase
+      .from("events")
+      .select(
+        `
+        id,
+        title,
+        description,
+        event_date,
+        start_date,
+        end_date,
+        facility_id,
+        target_audience,
+        session_config,
+        scanner_assignments,
+        created_by,
+        created_at,
+        updated_by,
+        updated_at,
+        facilities (
+          id,
+          name,
+          location_identifier
+        )
+      `,
+        { count: "exact" }
+      )
+      .order("start_date", { ascending: false, nullsFirst: false })
+      .range(offset, offset + pageSize - 1)
+      .contains("scanner_assignments", { scannerIds: [scannerId] });
+
+    if (options?.facilityId) {
+      query = query.eq("facility_id", options.facilityId);
+    }
+
+    if (options?.searchTerm) {
+      query = query.ilike("title", `%${options.searchTerm}%`);
+    }
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error("[EventRepository.findAllForScanner] Database error:", error);
+      throw new Error(`Failed to fetch scanner events: ${error.message}`);
+    }
+
+    // Supabase returns facilities as object (not array) for single FK join
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const scannerEvents = (data ?? []).map((row: any) => ({
+      ...row,
+      facilities: row.facilities ?? null,
+    })) as EventWithFacilityRow[];
+
+    return {
+      events: scannerEvents,
+      total: count ?? 0,
+    };
+  }
+
   async countActiveStudents(): Promise<number> {
     const { count, error } = await this.supabase
       .from("students")
@@ -423,7 +494,7 @@ export class EventRepository implements IEventRepository {
       .eq("is_active", true);
 
     if (error) {
-      console.error("[EventRepository.countActiveStudents] Database error:", error);
+      console.error("[EventRepository.countActiveStudents] Error:", error);
       return 0;
     }
 
