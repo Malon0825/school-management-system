@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSupabaseClient } from "@/core/db/supabase-client.admin";
 import { EventRepository } from "@/modules/sems";
+import { ADMIN_ROLES } from "@/config/roles";
+import { requireRoles } from "@/core/auth/server-role-guard";
 
 function formatSuccess<T>(data: T, status = 200) {
   return NextResponse.json(
@@ -30,19 +32,6 @@ function formatError(status: number, code: string, message: string, details?: un
     },
     { status }
   );
-}
-
-function getAccessTokenFromRequest(request: NextRequest): string | null {
-  const authHeader =
-    request.headers.get("authorization") ?? request.headers.get("Authorization");
-
-  if (authHeader?.startsWith("Bearer ")) {
-    const token = authHeader.slice("Bearer ".length).trim();
-    if (token) return token;
-  }
-
-  const cookieToken = request.cookies.get("auth-token")?.value;
-  return cookieToken ?? null;
 }
 
 type SessionPeriod = "morning" | "afternoon" | "evening";
@@ -97,18 +86,12 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const accessToken = getAccessTokenFromRequest(request);
-
-  if (!accessToken) {
-    return formatError(401, "UNAUTHENTICATED", "Not authenticated.");
+  const authResult = await requireRoles(request, Array.from(ADMIN_ROLES));
+  if ("error" in authResult) {
+    return authResult.error;
   }
 
   const supabase = getAdminSupabaseClient();
-
-  const { data: userResult, error: tokenError } = await supabase.auth.getUser(accessToken);
-  if (tokenError || !userResult?.user) {
-    return formatError(401, "INVALID_TOKEN", "Session is invalid or expired.", tokenError);
-  }
 
   const { id: eventId } = await params;
 

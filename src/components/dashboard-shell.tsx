@@ -34,6 +34,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { UserRole } from "@/core/auth/types";
 import { useAuth } from "@/shared/hooks/useAuth";
 import { useTheme } from "next-themes";
 
@@ -47,13 +48,50 @@ interface ModuleConfig {
   icon: React.ElementType;
   href: string;
   status: "active" | "upcoming";
+  allowedRoles?: UserRole[];
 }
 
 const MODULES: ModuleConfig[] = [
-  { id: "dashboard", name: "Dashboard", shortName: "Dashboard", phase: "phase1", icon: TrendingUp, href: "/dashboard", status: "active" },
-  { id: "sems", name: "Events", shortName: "Events", phase: "phase1", icon: QrCode, href: "/sems", status: "active" },
-  { id: "sis", name: "Registry", shortName: "Registry", phase: "phase1", icon: Users, href: "/sis", status: "active" },
-  { id: "facilities", name: "Facilities & Assets", shortName: "Facilities", phase: "phase4", icon: Building2, href: "/facilities", status: "active" },
+  {
+    id: "dashboard",
+    name: "Dashboard",
+    shortName: "Dashboard",
+    phase: "phase1",
+    icon: TrendingUp,
+    href: "/dashboard",
+    status: "active",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN"],
+  },
+  {
+    id: "sems",
+    name: "Events",
+    shortName: "Events",
+    phase: "phase1",
+    icon: QrCode,
+    href: "/sems",
+    status: "active",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN"],
+  },
+  {
+    id: "sis",
+    name: "Registry",
+    shortName: "Registry",
+    phase: "phase1",
+    icon: Users,
+    href: "/sis",
+    status: "active",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN"],
+  },
+  {
+    id: "facilities",
+    name: "Facilities & Assets",
+    shortName: "Facilities",
+    phase: "phase4",
+    icon: Building2,
+    href: "/facilities",
+    status: "active",
+    allowedRoles: ["SUPER_ADMIN", "ADMIN"],
+  },
   { id: "academic", name: "Academic Structure", shortName: "Academics", phase: "phase2", icon: School, href: "/dashboard/academic", status: "upcoming" },
   { id: "attendance", name: "Daily Attendance", shortName: "Attendance", phase: "phase2", icon: ClipboardCheck, href: "/dashboard/attendance", status: "upcoming" },
   { id: "exams", name: "Examination & Grading", shortName: "Exams", phase: "phase2", icon: GraduationCap, href: "/dashboard/exams", status: "upcoming" },
@@ -73,11 +111,12 @@ type DashboardShellProps = {
 export default function DashboardShell({ children, mobileTitle, mobileDescription }: DashboardShellProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user, logout, hasRole } = useAuth();
   const { theme, setTheme } = useTheme();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const canManageUsers = hasRole(["SUPER_ADMIN", "ADMIN"]);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -166,30 +205,32 @@ export default function DashboardShell({ children, mobileTitle, mobileDescriptio
           </div>
           {MODULES.map((module) => {
             const isActive = pathname === module.href;
+            const hasModuleAccess = !module.allowedRoles || hasRole(module.allowedRoles);
+            const isDisabled = module.status !== "active" || !hasModuleAccess;
 
             return (
               <button
                 key={module.id}
                 onClick={() => {
-                  if (module.status === "active") {
+                  if (!isDisabled) {
                     router.push(module.href);
                   }
                 }}
                 className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
                   isCollapsed ? "justify-center gap-0" : "gap-3"
                 } ${
-                  module.status === "active"
-                    ? `group border ${
+                  isDisabled
+                    ? "text-muted-foreground/50 cursor-not-allowed opacity-60"
+                    : `group border ${
                         isActive
                           ? "bg-card text-primary shadow-sm border-primary/10"
                           : "border-transparent text-muted-foreground hover:bg-accent hover:text-primary"
                       }`
-                    : "text-muted-foreground/50 cursor-not-allowed opacity-60"
                 }`}
               >
                 <module.icon
                   className={`w-4 h-4 transition-colors ${
-                    module.status === "active"
+                    !isDisabled
                       ? isActive
                         ? "text-primary"
                         : "text-muted-foreground group-hover:text-primary"
@@ -208,6 +249,11 @@ export default function DashboardShell({ children, mobileTitle, mobileDescriptio
                 {module.status === "upcoming" && !isCollapsed && (
                   <span className="ml-auto text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-md font-semibold border border-border">
                     Soon
+                  </span>
+                )}
+                {module.status === "active" && !hasModuleAccess && !isCollapsed && (
+                  <span className="ml-auto text-[10px] bg-destructive/10 text-destructive px-1.5 py-0.5 rounded-md font-semibold border border-destructive/30">
+                    Restricted
                   </span>
                 )}
               </button>
@@ -267,13 +313,15 @@ export default function DashboardShell({ children, mobileTitle, mobileDescriptio
                   <User className="w-4 h-4" />
                   <span className="text-sm font-medium">Profile</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => router.push("/users")}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-foreground hover:bg-primary/5 hover:text-primary focus:bg-primary/5 focus:text-primary"
-                >
-                  <UsersRound className="w-4 h-4" />
-                  <span className="text-sm font-medium">Manage Users</span>
-                </DropdownMenuItem>
+                {canManageUsers && (
+                  <DropdownMenuItem
+                    onClick={() => router.push("/users")}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-foreground hover:bg-primary/5 hover:text-primary focus:bg-primary/5 focus:text-primary"
+                  >
+                    <UsersRound className="w-4 h-4" />
+                    <span className="text-sm font-medium">Manage Users</span>
+                  </DropdownMenuItem>
+                )}
               </div>
               <div className="px-3 pt-1 pb-2">
                 <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-[0.12em] mb-1">

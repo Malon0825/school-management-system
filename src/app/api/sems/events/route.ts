@@ -26,6 +26,8 @@ import {
   type EventScannerConfig,
   type UpdateEventDto,
 } from "@/modules/sems";
+import { ADMIN_ROLES, ADMIN_SCANNER_ROLES } from "@/config/roles";
+import { requireRoles } from "@/core/auth/server-role-guard";
 
 // ============================================================================
 // Response Formatting Helpers
@@ -92,54 +94,6 @@ function formatError(
  * @param request - Next.js request object
  * @returns Access token string or null
  */
-function getAccessTokenFromRequest(request: NextRequest): string | null {
-  const authHeader =
-    request.headers.get("authorization") ?? request.headers.get("Authorization");
-
-  if (authHeader?.startsWith("Bearer ")) {
-    const token = authHeader.slice("Bearer ".length).trim();
-    if (token) return token;
-  }
-
-  const cookieToken = request.cookies.get("auth-token")?.value;
-  return cookieToken ?? null;
-}
-
-/**
- * Authenticate request and return the current user ID.
- *
- * @param request - Next.js request object
- * @returns User ID or an error response
- */
-async function authenticateRequest(
-  request: NextRequest
-): Promise<
-  | { userId: string; error?: never }
-  | { userId?: never; error: NextResponse }
-> {
-  const accessToken = getAccessTokenFromRequest(request);
-
-  if (!accessToken) {
-    return {
-      error: formatError(401, "UNAUTHENTICATED", "Not authenticated."),
-    };
-  }
-
-  const supabase = getAdminSupabaseClient();
-
-  const { data: userResult, error: tokenError } = await supabase.auth.getUser(
-    accessToken
-  );
-  if (tokenError || !userResult?.user) {
-    return {
-      error: formatError(401, "INVALID_TOKEN", "Session is invalid or expired."),
-    };
-  }
-
-  const userId = userResult.user.id;
-  return { userId };
-}
-
 // ============================================================================
 // Request Body Parsing
 // ============================================================================
@@ -247,13 +201,12 @@ function parseRequestBody(body: unknown): CreateEventDto | null {
  * ```
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  // Step 1: Authenticate
-  const authResult = await authenticateRequest(request);
-  if (authResult.error) {
+  const authResult = await requireRoles(request, Array.from(ADMIN_ROLES));
+  if ("error" in authResult) {
     return authResult.error;
   }
 
-  const { userId } = authResult;
+  const { appUser } = authResult;
 
   // Step 2: Parse request body
   const body = await request.json().catch(() => null);
@@ -270,7 +223,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   // Step 4: Create event via service
   try {
-    const event = await eventService.createEvent(dto, userId);
+    const event = await eventService.createEvent(dto, appUser.id);
     return formatSuccess({ event }, 201);
   } catch (error) {
     // Handle domain-specific errors
@@ -325,9 +278,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
  * - status: live, scheduled, or completed
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  // Authenticate
-  const authResult = await authenticateRequest(request);
-  if (authResult.error) {
+  const authResult = await requireRoles(request, Array.from(ADMIN_ROLES));
+  if ("error" in authResult) {
     return authResult.error;
   }
 
@@ -397,13 +349,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
  * ```
  */
 export async function PUT(request: NextRequest): Promise<NextResponse> {
-  // Step 1: Authenticate
-  const authResult = await authenticateRequest(request);
-  if (authResult.error) {
+  const authResult = await requireRoles(request, Array.from(ADMIN_ROLES));
+  if ("error" in authResult) {
     return authResult.error;
   }
 
-  const { userId } = authResult;
+  const { appUser } = authResult;
 
   // Step 2: Parse request body
   const body = await request.json().catch(() => null);
@@ -475,7 +426,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
   // Step 4: Update event via service
   try {
-    const event = await eventService.updateEvent(dto, userId);
+    const event = await eventService.updateEvent(dto, appUser.id);
     return formatSuccess({ event }, 200);
   } catch (error) {
     // Handle domain-specific errors
@@ -517,9 +468,8 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
  * { "ids": ["uuid1", "uuid2", ...] }
  */
 export async function DELETE(request: NextRequest): Promise<NextResponse> {
-  // Authenticate
-  const authResult = await authenticateRequest(request);
-  if (authResult.error) {
+  const authResult = await requireRoles(request, Array.from(ADMIN_ROLES));
+  if ("error" in authResult) {
     return authResult.error;
   }
 

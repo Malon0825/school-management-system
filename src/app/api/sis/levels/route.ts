@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSupabaseClient } from "@/core/db/supabase-client.admin";
+import { ADMIN_ROLES } from "@/config/roles";
+import { requireRoles } from "@/core/auth/server-role-guard";
 
 function formatSuccess<T>(data: T, status = 200) {
   return NextResponse.json(
@@ -29,19 +31,6 @@ function formatError(status: number, code: string, message: string, details?: un
     },
     { status }
   );
-}
-
-function getAccessTokenFromRequest(request: NextRequest): string | null {
-  const authHeader =
-    request.headers.get("authorization") ?? request.headers.get("Authorization");
-
-  if (authHeader?.startsWith("Bearer ")) {
-    const token = authHeader.slice("Bearer ".length).trim();
-    if (token) return token;
-  }
-
-  const cookieToken = request.cookies.get("auth-token")?.value;
-  return cookieToken ?? null;
 }
 
 type LevelRow = {
@@ -168,18 +157,12 @@ function validateUpdateLevelBody(body: unknown): {
 }
 
 export async function GET(request: NextRequest) {
-  const accessToken = getAccessTokenFromRequest(request);
-
-  if (!accessToken) {
-    return formatError(401, "UNAUTHENTICATED", "Not authenticated.");
+  const authResult = await requireRoles(request, Array.from(ADMIN_ROLES));
+  if ("error" in authResult) {
+    return authResult.error;
   }
 
   const supabase = getAdminSupabaseClient();
-
-  const { data: userResult, error: tokenError } = await supabase.auth.getUser(accessToken);
-  if (tokenError || !userResult?.user) {
-    return formatError(401, "INVALID_TOKEN", "Session is invalid or expired.");
-  }
 
   const url = new URL(request.url);
   const includeInactive = url.searchParams.get("includeInactive") === "true";
@@ -234,18 +217,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const accessToken = getAccessTokenFromRequest(request);
-
-  if (!accessToken) {
-    return formatError(401, "UNAUTHENTICATED", "Not authenticated.");
+  const authResult = await requireRoles(request, Array.from(ADMIN_ROLES));
+  if ("error" in authResult) {
+    return authResult.error;
   }
 
   const supabase = getAdminSupabaseClient();
-
-  const { data: userResult, error: tokenError } = await supabase.auth.getUser(accessToken);
-  if (tokenError || !userResult?.user) {
-    return formatError(401, "INVALID_TOKEN", "Session is invalid or expired.");
-  }
 
   const body = await request.json().catch(() => null);
   const { value, errors } = validateCreateLevelBody(body);
@@ -286,18 +263,12 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const accessToken = getAccessTokenFromRequest(request);
-
-  if (!accessToken) {
-    return formatError(401, "UNAUTHENTICATED", "Not authenticated.");
+  const authResult = await requireRoles(request, Array.from(ADMIN_ROLES));
+  if ("error" in authResult) {
+    return authResult.error;
   }
 
   const supabase = getAdminSupabaseClient();
-
-  const { data: userResult, error: tokenError } = await supabase.auth.getUser(accessToken);
-  if (tokenError || !userResult?.user) {
-    return formatError(401, "INVALID_TOKEN", "Session is invalid or expired.");
-  }
 
   const body = await request.json().catch(() => null);
   const { value, errors } = validateUpdateLevelBody(body);

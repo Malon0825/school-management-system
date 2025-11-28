@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSupabaseClient } from "@/core/db/supabase-client.admin";
 import type { UserRole } from "@/core/auth/types";
+import { ADMIN_ROLES } from "@/config/roles";
+import { requireRoles } from "@/core/auth/server-role-guard";
 
 function formatSuccess<T>(data: T, status = 200) {
   return NextResponse.json(
@@ -32,19 +34,6 @@ function formatError(status: number, code: string, message: string, details?: un
   );
 }
 
-function getAccessTokenFromRequest(request: NextRequest): string | null {
-  const authHeader =
-    request.headers.get("authorization") ?? request.headers.get("Authorization");
-
-  if (authHeader?.startsWith("Bearer ")) {
-    const token = authHeader.slice("Bearer ".length).trim();
-    if (token) return token;
-  }
-
-  const cookieToken = request.cookies.get("auth-token")?.value;
-  return cookieToken ?? null;
-}
-
 type ActingUserRow = {
   id: string;
   roles: string[] | null;
@@ -73,68 +62,6 @@ function normalizeRoles(roles: string[] | null | undefined): UserRole[] {
   return unique.filter((r): r is UserRole => allowed.includes(r as UserRole));
 }
 
-async function requireAdminUser(request: NextRequest): Promise<
-  | { actingUser: ActingUserRow; error?: never }
-  | { actingUser?: never; error: NextResponse }
-> {
-  const accessToken = getAccessTokenFromRequest(request);
-
-  if (!accessToken) {
-    return {
-      error: formatError(401, "UNAUTHENTICATED", "Not authenticated."),
-    };
-  }
-
-  const supabase = getAdminSupabaseClient();
-
-  const { data: userResult, error: tokenError } = await supabase.auth.getUser(accessToken);
-
-  if (tokenError || !userResult?.user) {
-    return {
-      error: formatError(401, "INVALID_TOKEN", "Session is invalid or expired."),
-    };
-  }
-
-  const userId = userResult.user.id;
-
-  const { data: appUser, error: appUserError } = await supabase
-    .from("app_users")
-    .select("id, roles, primary_role, is_active")
-    .eq("id", userId)
-    .single<ActingUserRow>();
-
-  if (appUserError || !appUser) {
-    console.error("[/api/users/reset-password] Acting user not found in app_users", {
-      userId,
-      appUserError,
-    });
-    return {
-      error: formatError(
-        403,
-        "USER_NOT_FOUND",
-        "Your account is not configured for this system.",
-        appUserError?.message ?? appUserError
-      ),
-    };
-  }
-
-  if (appUser.is_active === false) {
-    return {
-      error: formatError(403, "ACCOUNT_INACTIVE", "Your account is inactive."),
-    };
-  }
-
-  const roles = normalizeRoles(appUser.roles);
-
-  if (!roles.includes("SUPER_ADMIN") && !roles.includes("ADMIN")) {
-    return {
-      error: formatError(403, "FORBIDDEN", "You are not allowed to manage users."),
-    };
-  }
-
-  return { actingUser: appUser };
-}
-
 function generateRandomPassword(length = 24): string {
   const charset =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_-+=";
@@ -153,8 +80,8 @@ interface ResetPasswordBody {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const authResult = await requireAdminUser(request);
-  if (authResult.error) {
+  const authResult = await requireRoles(request, Array.from(ADMIN_ROLES));
+  if ("error" in authResult) {
     return authResult.error;
   }
 

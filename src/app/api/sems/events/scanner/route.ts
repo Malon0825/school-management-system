@@ -2,6 +2,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getAdminSupabaseClient } from "@/core/db/supabase-client.admin";
 import { EventService, EventRepository } from "@/modules/sems";
+import { ADMIN_SCANNER_ROLES } from "@/config/roles";
+import { requireRoles } from "@/core/auth/server-role-guard";
 
 function formatSuccess<T>(data: T, status = 200) {
   return NextResponse.json(
@@ -33,53 +35,13 @@ function formatError(status: number, code: string, message: string, details?: un
   );
 }
 
-function getAccessTokenFromRequest(request: NextRequest): string | null {
-  const authHeader =
-    request.headers.get("authorization") ?? request.headers.get("Authorization");
-
-  if (authHeader?.startsWith("Bearer ")) {
-    const token = authHeader.slice("Bearer ".length).trim();
-    if (token) return token;
-  }
-
-  const cookieToken = request.cookies.get("auth-token")?.value;
-  return cookieToken ?? null;
-}
-
-async function authenticateRequest(
-  request: NextRequest
-): Promise<
-  | { userId: string; error?: never }
-  | { userId?: never; error: ReturnType<typeof NextResponse.json> }
-> {
-  const accessToken = getAccessTokenFromRequest(request);
-
-  if (!accessToken) {
-    return {
-      error: formatError(401, "UNAUTHENTICATED", "Not authenticated."),
-    };
-  }
-
-  const supabase = getAdminSupabaseClient();
-
-  const { data: userResult, error: tokenError } = await supabase.auth.getUser(accessToken);
-  if (tokenError || !userResult?.user) {
-    return {
-      error: formatError(401, "INVALID_TOKEN", "Session is invalid or expired."),
-    };
-  }
-
-  const userId = userResult.user.id;
-  return { userId };
-}
-
 export async function GET(request: NextRequest) {
-  const authResult = await authenticateRequest(request);
-  if (authResult.error) {
+  const authResult = await requireRoles(request, Array.from(ADMIN_SCANNER_ROLES));
+  if ("error" in authResult) {
     return authResult.error;
   }
 
-  const { userId } = authResult;
+  const userId = authResult.supabaseUser.id;
 
   const { searchParams } = new URL(request.url);
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));

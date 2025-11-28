@@ -2,6 +2,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getAdminSupabaseClient } from "@/core/db/supabase-client.admin";
 import type { UserRole } from "@/core/auth/types";
+import { ADMIN_ROLES } from "@/config/roles";
+import { requireRoles } from "@/core/auth/server-role-guard";
 
 interface ScannerUserDto {
   id: string;
@@ -42,19 +44,6 @@ function formatError(status: number, code: string, message: string, details?: un
   );
 }
 
-function getAccessTokenFromRequest(request: NextRequest): string | null {
-  const authHeader =
-    request.headers.get("authorization") ?? request.headers.get("Authorization");
-
-  if (authHeader?.startsWith("Bearer ")) {
-    const token = authHeader.slice("Bearer ".length).trim();
-    if (token) return token;
-  }
-
-  const cookieToken = request.cookies.get("auth-token")?.value;
-  return cookieToken ?? null;
-}
-
 function normalizeRoles(roles: string[] | null | undefined): UserRole[] {
   if (!Array.isArray(roles)) return [];
 
@@ -77,46 +66,12 @@ function normalizeRoles(roles: string[] | null | undefined): UserRole[] {
 }
 
 export async function GET(request: NextRequest) {
-  const accessToken = getAccessTokenFromRequest(request);
-
-  if (!accessToken) {
-    return formatError(401, "UNAUTHENTICATED", "Not authenticated.");
+  const authResult = await requireRoles(request, Array.from(ADMIN_ROLES));
+  if ("error" in authResult) {
+    return authResult.error;
   }
 
   const supabase = getAdminSupabaseClient();
-
-  const { data: userResult, error: tokenError } = await supabase.auth.getUser(accessToken);
-
-  if (tokenError || !userResult?.user) {
-    return formatError(401, "INVALID_TOKEN", "Session is invalid or expired.");
-  }
-
-  const userId = userResult.user.id;
-
-  const { data: appUser, error: appUserError } = await supabase
-    .from("app_users")
-    .select("id, roles, primary_role, is_active")
-    .eq("id", userId)
-    .single<{ id: string; roles: string[] | null; primary_role: string | null; is_active: boolean | null }>();
-
-  if (appUserError || !appUser) {
-    return formatError(
-      403,
-      "ACCOUNT_NOT_FOUND",
-      "Your account is not configured for this system.",
-      appUserError?.message ?? appUserError
-    );
-  }
-
-  if (appUser.is_active === false) {
-    return formatError(403, "ACCOUNT_INACTIVE", "Your account is inactive.");
-  }
-
-  const actingRoles = normalizeRoles(appUser.roles);
-
-  if (!actingRoles.some((role) => ["SUPER_ADMIN", "ADMIN", "STAFF"].includes(role))) {
-    return formatError(403, "FORBIDDEN", "You are not allowed to view scanner assignments.");
-  }
 
   const { data: rows, error: scannersError } = await supabase
     .from("app_users")
