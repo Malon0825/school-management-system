@@ -1869,9 +1869,9 @@ export default function EventsPage() {
 
   return (
     <>
-      <div className="flex-1 flex flex-col space-y-6 min-h-0">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
+      <div className="flex-1 flex flex-col space-y-6 min-h-0 px-4 py-4 sm:px-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-3 w-full">
             <div className="hidden sm:flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
               <QrCode className="w-5 h-5" />
             </div>
@@ -1882,12 +1882,12 @@ export default function EventsPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-2 w-full md:w-auto">
             <Button
               type="button"
               variant="outline"
               onClick={() => router.push("/sems/scan")}
-              className="text-sm px-4 py-2 rounded-lg border-border bg-card text-muted-foreground hover:border-emerald-300 hover:text-emerald-800 shadow-sm"
+              className="text-sm px-4 py-2 rounded-lg border-border bg-card text-muted-foreground hover:border-emerald-300 hover:text-emerald-800 shadow-sm w-full sm:w-auto"
             >
               My Scanner Events
             </Button>
@@ -1897,7 +1897,7 @@ export default function EventsPage() {
                 resetForm();
                 setIsCreateDialogOpen(true);
               }}
-              className="bg-[#1B4D3E] text-white hover:bg-[#163e32] text-sm px-4 py-2 rounded-lg shadow-sm"
+              className="bg-[#1B4D3E] text-white hover:bg-[#163e32] text-sm px-4 py-2 rounded-lg shadow-sm w-full sm:w-auto"
             >
               + Create Event
             </Button>
@@ -1906,14 +1906,14 @@ export default function EventsPage() {
 
         <Card className="flex-1 flex flex-col w-full border-border shadow-sm">
           <CardHeader className="border-b border-border/80 pb-4 bg-card/95">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <CardTitle className="text-lg font-bold text-foreground">List of Events</CardTitle>
                 <CardDescription>Events scheduled for today with live status.</CardDescription>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-2 w-full">
                 {eventSelectionState.hasSelection && (
-                  <span className="hidden md:inline text-xs text-muted-foreground mr-1">
+                  <span className="text-xs text-muted-foreground">
                     {eventSelectionState.selectedCount} selected
                   </span>
                 )}
@@ -1954,9 +1954,9 @@ export default function EventsPage() {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-                <div className="hidden lg:inline-flex items-center">
+                <div className="w-full lg:w-auto">
                   <Select value={venueFilter} onValueChange={setVenueFilter}>
-                    <SelectTrigger className="min-w-[160px] pl-3 pr-9 py-1.5 text-sm border border-border rounded-full bg-card text-muted-foreground shadow-sm">
+                    <SelectTrigger className="w-full min-w-[160px] pl-3 pr-9 py-2 text-sm border border-border rounded-full bg-card text-muted-foreground shadow-sm">
                       <SelectValue placeholder="All venues" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1974,14 +1974,14 @@ export default function EventsPage() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search events..."
-                  className="w-40 lg:w-56 px-3 py-1.5 text-sm border border-border rounded-full bg-card text-muted-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
+                  className="w-full lg:w-56 px-3 py-2 text-sm border border-border rounded-full bg-card text-muted-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
                 />
               </div>
             </div>
           </CardHeader>
           <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-auto px-6 pb-6 hide-scrollbar">
-              <Table className="min-w-full">
+            <div className="flex-1 overflow-auto px-4 pb-4 sm:px-6 sm:pb-6 hide-scrollbar">
+              <Table className="w-full min-w-[720px]">
                 <TableHeader>
                   <TableRow className="bg-muted">
                     <TableHead className="w-10">

@@ -921,9 +921,9 @@ export default function RegistryPage() {
 
   return (
     <>
-      <div className="flex-1 flex flex-col space-y-6 min-h-0 overflow-y-auto hide-scrollbar">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-start gap-3">
+      <div className="flex-1 flex flex-col space-y-6 min-h-0 overflow-y-auto hide-scrollbar px-4 py-4 sm:px-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-start gap-3 w-full">
           <div className="hidden sm:flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
             <Users className="w-5 h-5" />
           </div>
@@ -937,20 +937,20 @@ export default function RegistryPage() {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 w-full lg:w-auto lg:flex-nowrap lg:items-center lg:gap-3 lg:justify-end">
           <Button
             type="button"
-            className="bg-card border border-border text-muted-foreground hover:bg-muted text-sm px-4 py-2 rounded-lg shadow-sm"
+            className="bg-card border border-border text-muted-foreground hover:bg-muted text-sm px-4 py-2 rounded-lg shadow-sm w-full sm:w-auto lg:w-auto"
             onClick={() => setIsBulkImportDialogOpen(true)}
           >
             Bulk Import
           </Button>
           
           {/* Export QR Codes Dropdown */}
-          <div className="relative">
+          <div className="relative w-full sm:w-auto lg:w-auto">
             <Button
               type="button"
-              className="bg-card border border-border text-muted-foreground hover:bg-muted text-sm px-4 py-2 rounded-lg shadow-sm inline-flex items-center gap-1.5"
+              className="bg-card border border-border text-muted-foreground hover:bg-muted text-sm px-4 py-2 rounded-lg shadow-sm inline-flex items-center gap-1.5 w-full"
               onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
               disabled={isExporting || students.length === 0}
             >
@@ -996,23 +996,25 @@ export default function RegistryPage() {
             )}
           </div>
           
+          <div className="flex flex-col gap-2 sm:flex-row sm:gap-2 w-full sm:w-auto lg:flex-nowrap lg:gap-2">
+            <Button
+              type="button"
+              className="bg-card border border-border text-muted-foreground hover:bg-muted text-sm px-4 py-2 rounded-lg shadow-sm w-full sm:w-auto"
+              onClick={() => setIsLevelDialogOpen(true)}
+            >
+              Manage Levels
+            </Button>
+            <Button
+              type="button"
+              className="bg-card border border-border text-muted-foreground hover:bg-muted text-sm px-4 py-2 rounded-lg shadow-sm w-full sm:w-auto"
+              onClick={() => setIsSectionDialogOpen(true)}
+            >
+              Manage Sections
+            </Button>
+          </div>
           <Button
             type="button"
-            className="hidden sm:inline-flex bg-card border border-border text-muted-foreground hover:bg-muted text-sm px-4 py-2 rounded-lg shadow-sm"
-            onClick={() => setIsLevelDialogOpen(true)}
-          >
-            Manage Levels
-          </Button>
-          <Button
-            type="button"
-            className="hidden sm:inline-flex bg-card border border-border text-muted-foreground hover:bg-muted text-sm px-4 py-2 rounded-lg shadow-sm"
-            onClick={() => setIsSectionDialogOpen(true)}
-          >
-            Manage Sections
-          </Button>
-          <Button
-            type="button"
-            className="bg-[#1B4D3E] text-white hover:bg-[#163e32] text-sm px-4 py-2 rounded-lg shadow-sm"
+            className="bg-[#1B4D3E] text-white hover:bg-[#163e32] text-sm px-4 py-2 rounded-lg shadow-sm w-full sm:w-auto"
             onClick={() => {
               setAddStudentError(null);
               setAddStudentLevelName("");
@@ -1035,10 +1037,10 @@ export default function RegistryPage() {
                 {filteredStudents.length} of {students.length} students shown.
               </CardDescription>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-              <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-center w-full">
+              <div className="flex gap-2 flex-col sm:flex-row w-full">
                 <Select value={levelFilter} onValueChange={setLevelFilter}>
-                  <SelectTrigger className="min-w-[120px] pl-3 pr-3 py-1.5 text-sm border border-border rounded-full bg-card text-muted-foreground shadow-sm">
+                  <SelectTrigger className="w-full sm:min-w-[140px] pl-3 pr-3 py-2 text-sm border border-border rounded-full bg-card text-muted-foreground shadow-sm">
                     <SelectValue placeholder="All levels" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1051,7 +1053,7 @@ export default function RegistryPage() {
                   </SelectContent>
                 </Select>
                 <Select value={sectionFilter} onValueChange={setSectionFilter}>
-                  <SelectTrigger className="min-w-[120px] pl-3 pr-3 py-1.5 text-sm border border-border rounded-full bg-card text-muted-foreground shadow-sm">
+                  <SelectTrigger className="w-full sm:min-w-[140px] pl-3 pr-3 py-2 text-sm border border-border rounded-full bg-card text-muted-foreground shadow-sm">
                     <SelectValue placeholder="All sections" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1069,14 +1071,14 @@ export default function RegistryPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search name, LRN, or section..."
-                className="w-full sm:w-64 px-3 py-1.5 text-sm border border-border rounded-full bg-card text-muted-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
+                className="w-full sm:w-64 px-3 py-2 text-sm border border-border rounded-full bg-card text-muted-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1B4D3E]/20 focus:border-[#1B4D3E] placeholder:text-muted-foreground/70"
               />
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-auto px-6 pb-6">
-            <Table className="min-w-full">
+          </CardHeader>
+          <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-auto px-4 pb-4 sm:px-6 sm:pb-6">
+            <Table className="w-full min-w-[640px]">
               <TableHeader>
                 <TableRow className="bg-muted">
                   <TableHead className="font-bold text-primary">Student Name</TableHead>
