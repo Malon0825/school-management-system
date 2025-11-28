@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 
+type Period = "AM" | "PM"
+
 type TimePickerProps = {
   value?: string // expected format: "HH:mm"
   onChange?: (value: string) => void
@@ -22,6 +24,24 @@ function parseTime(value?: string | null): { hour: string | null; minute: string
   return { hour: h.padStart(2, "0"), minute: m.padStart(2, "0") }
 }
 
+function to12Hour(hour24: string | null): { hour: string | null; period: Period } {
+  if (hour24 === null) {
+    return { hour: null, period: "AM" }
+  }
+  const numeric = Number.parseInt(hour24, 10)
+  const period: Period = numeric >= 12 ? "PM" : "AM"
+  const hour12 = numeric % 12 === 0 ? 12 : numeric % 12
+  return { hour: hour12.toString().padStart(2, "0"), period }
+}
+
+function to24Hour(hour12: string, period: Period): string {
+  let numeric = Number.parseInt(hour12, 10) % 12
+  if (period === "PM") {
+    numeric += 12
+  }
+  return numeric.toString().padStart(2, "0")
+}
+
 export function TimePicker({
   value,
   onChange,
@@ -30,23 +50,32 @@ export function TimePicker({
   className,
 }: TimePickerProps) {
   const [open, setOpen] = React.useState(false)
+  const skipExternalSyncRef = React.useRef(false)
 
   const { hour: initialHour, minute: initialMinute } = React.useMemo(
     () => parseTime(value),
     [value],
   )
 
+  const initialPeriod = React.useMemo(() => to12Hour(initialHour).period, [initialHour])
+
   const [selectedHour, setSelectedHour] = React.useState<string | null>(initialHour)
   const [selectedMinute, setSelectedMinute] = React.useState<string | null>(initialMinute)
+  const [selectedPeriod, setSelectedPeriod] = React.useState<Period>(initialPeriod)
 
   React.useEffect(() => {
+    if (skipExternalSyncRef.current) {
+      skipExternalSyncRef.current = false
+      return
+    }
     const { hour, minute } = parseTime(value)
     setSelectedHour(hour)
     setSelectedMinute(minute)
+    setSelectedPeriod(to12Hour(hour).period)
   }, [value])
 
-  const hours = React.useMemo(
-    () => Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, "0")),
+  const hourOptions = React.useMemo(
+    () => ["12", ...Array.from({ length: 11 }, (_, i) => (i + 1).toString().padStart(2, "0"))],
     [],
   )
 
@@ -58,16 +87,42 @@ export function TimePicker({
     [minuteStep],
   )
 
-  const formatted = React.useMemo(() => {
+  const displayTime = React.useMemo(() => {
     if (!selectedHour || !selectedMinute) return ""
-    return `${selectedHour}:${selectedMinute}`
-  }, [selectedHour, selectedMinute])
+    const { hour } = to12Hour(selectedHour)
+    return `${hour ?? "12"}:${selectedMinute} ${selectedPeriod}`
+  }, [selectedHour, selectedMinute, selectedPeriod])
 
-  function commitTime(nextHour: string | null, nextMinute: string | null) {
+  const currentDisplayHour = React.useMemo(() => to12Hour(selectedHour).hour, [selectedHour])
+
+  function commitTime(nextHour: string | null, nextMinute: string | null, shouldClose = false) {
     if (!nextHour || !nextMinute) return
     const next = `${nextHour}:${nextMinute}`
+    skipExternalSyncRef.current = true
     onChange?.(next)
-    setOpen(false)
+    if (shouldClose) {
+      setOpen(false)
+    }
+  }
+
+  function handleHourSelect(hour12: string) {
+    const nextHour24 = to24Hour(hour12, selectedPeriod)
+    setSelectedHour(nextHour24)
+    if (selectedMinute) {
+      commitTime(nextHour24, selectedMinute)
+    }
+  }
+
+  function handlePeriodSelect(period: Period) {
+    if (period === selectedPeriod) return
+    setSelectedPeriod(period)
+    if (currentDisplayHour) {
+      const nextHour24 = to24Hour(currentDisplayHour, period)
+      setSelectedHour(nextHour24)
+      if (selectedMinute) {
+        commitTime(nextHour24, selectedMinute, true)
+      }
+    }
   }
 
   return (
@@ -77,34 +132,34 @@ export function TimePicker({
           type="button"
           variant="outline"
           className={cn(
-            "w-full justify-between text-left font-normal px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-800 shadow-sm",
-            !formatted && "text-muted-foreground",
+            "w-full justify-between text-left font-normal px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground shadow-sm",
+            !displayTime && "text-muted-foreground",
             className,
           )}
         >
           <span>
-            {formatted || placeholder}
+            {displayTime || placeholder}
           </span>
-          <Clock className="ml-2 h-4 w-4 text-gray-400" />
+          <Clock className="ml-2 h-4 w-4 text-muted-foreground" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-3" align="start">
+      <PopoverContent className="w-72 p-3 border border-border/60 bg-popover text-popover-foreground shadow-lg" align="start">
         <div className="flex flex-col gap-3">
-          <div className="text-xs font-medium text-gray-500">Select time</div>
-          <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="text-xs font-medium text-muted-foreground">Select time</div>
+          <div className="grid grid-cols-[1fr_1fr_auto] gap-3 text-sm">
             <div>
-              <div className="mb-1 text-[0.7rem] uppercase tracking-wide text-gray-400">Hour</div>
-              <div className="max-h-40 overflow-y-auto rounded-md border border-gray-100 bg-gray-50/60">
-                {hours.map((h) => (
+              <div className="mb-1 text-[0.7rem] uppercase tracking-wide text-muted-foreground">Hour</div>
+              <div className="max-h-40 overflow-y-auto rounded-md border border-border/40 bg-muted [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                {hourOptions.map((h) => (
                   <button
                     key={h}
                     type="button"
                     className={cn(
-                      "flex w-full items-center px-2.5 py-1.5 text-left hover:bg-white hover:text-gray-900 text-gray-700 text-xs",
-                      selectedHour === h &&
-                        "bg-[#1B4D3E]/10 text-[#1B4D3E] font-semibold border-l-2 border-[#1B4D3E]",
+                      "flex w-full items-center px-2.5 py-1.5 text-left text-muted-foreground hover:bg-card hover:text-foreground text-xs transition-colors",
+                      currentDisplayHour === h &&
+                        "bg-primary/10 text-primary font-semibold border-l-2 border-primary",
                     )}
-                    onClick={() => setSelectedHour(h)}
+                    onClick={() => handleHourSelect(h)}
                   >
                     {h}
                   </button>
@@ -112,25 +167,46 @@ export function TimePicker({
               </div>
             </div>
             <div>
-              <div className="mb-1 text-[0.7rem] uppercase tracking-wide text-gray-400">Minute</div>
-              <div className="max-h-40 overflow-y-auto rounded-md border border-gray-100 bg-gray-50/60">
+              <div className="mb-1 text-[0.7rem] uppercase tracking-wide text-muted-foreground">Minute</div>
+              <div className="max-h-40 overflow-y-auto rounded-md border border-border/40 bg-muted [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 {minutes.map((m) => (
                   <button
                     key={m}
                     type="button"
                     className={cn(
-                      "flex w-full items-center px-2.5 py-1.5 text-left hover:bg-white hover:text-gray-900 text-gray-700 text-xs",
+                      "flex w-full items-center px-2.5 py-1.5 text-left text-muted-foreground hover:bg-card hover:text-foreground text-xs transition-colors",
                       selectedMinute === m &&
-                        "bg-[#1B4D3E]/10 text-[#1B4D3E] font-semibold border-l-2 border-[#1B4D3E]",
+                        "bg-primary/10 text-primary font-semibold border-l-2 border-primary",
                     )}
                     onClick={() => {
                       const nextMinute = m
-                      const nextHour = selectedHour ?? initialHour ?? "00"
+                      const fallbackHour12 = currentDisplayHour ?? "12"
+                      const nextHour = selectedHour ?? to24Hour(fallbackHour12, selectedPeriod)
                       setSelectedMinute(nextMinute)
                       commitTime(nextHour, nextMinute)
                     }}
                   >
                     {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="mb-1 text-[0.7rem] uppercase tracking-wide text-muted-foreground">Period</div>
+              <div className="grid grid-rows-2 gap-2">
+                {["AM", "PM"].map((period) => (
+                  <button
+                    key={period}
+                    type="button"
+                    className={cn(
+                      "flex items-center justify-center rounded-md border px-2 py-2 text-xs font-semibold uppercase tracking-wide transition-colors",
+                      selectedPeriod === period
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border/70 bg-card text-muted-foreground hover:border-primary/40 hover:text-primary",
+                    )}
+                    onClick={() => handlePeriodSelect(period as Period)}
+                  >
+                    {period}
                   </button>
                 ))}
               </div>

@@ -1713,6 +1713,7 @@ export default function EventsPage() {
   const handleEventFormSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setCreateEventError(null);
+    const isUpdate = Boolean(editingEventId);
 
     // Validate session time conflicts before submission
     const sessionError = validateAllSessionConfigs();
@@ -1801,8 +1802,13 @@ export default function EventsPage() {
         throw new Error(errorMessage);
       }
 
-      // Success - close dialog and reset form
+      // Success - close dialog, notify, and reset form
       setIsCreateDialogOpen(false);
+      toast.success(isUpdate ? "Event updated" : "Event created", {
+        description: isUpdate
+          ? "The event details have been saved."
+          : "The new event has been added to the schedule.",
+      });
       resetForm();
 
       // Refresh events list
