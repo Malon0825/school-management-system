@@ -81,7 +81,7 @@ export default function LoginPage() {
                 <input
                   id="email"
                   type="text"
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#F4B400]/50 focus:border-[#F4B400] transition-all bg-gray-50 focus:bg-white outline-none text-gray-800 placeholder-gray-400"
+                  className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#F4B400]/50 focus:border-[#F4B400] transition-all bg-white hover:bg-white/95 outline-none text-gray-800 placeholder-gray-400"
                   placeholder="Enter your ID"
                   required
                   value={email}
@@ -105,7 +105,7 @@ export default function LoginPage() {
                 <input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  className="block w-full pl-10 pr-10 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#F4B400]/50 focus:border-[#F4B400] transition-all bg-gray-50 focus:bg-white outline-none text-gray-800 placeholder-gray-400"
+                  className="block w-full pl-10 pr-10 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#F4B400]/50 focus:border-[#F4B400] transition-all bg-white hover:bg-white/95 outline-none text-gray-800 placeholder-gray-400"
                   placeholder="••••••••"
                   required
                   value={password}

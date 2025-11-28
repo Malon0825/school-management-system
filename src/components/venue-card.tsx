@@ -76,23 +76,23 @@ export function VenueCard({
   // Status indicator colors and icons
   const statusConfig = {
     available: {
-      bgColor: "bg-emerald-50",
-      borderColor: "border-emerald-200",
-      textColor: "text-emerald-700",
+      bgColor: "bg-emerald-500/15",
+      borderColor: "border-emerald-500/40",
+      textColor: "text-emerald-200",
       icon: CheckCircle,
       label: "Available",
     },
     partial: {
-      bgColor: "bg-amber-50",
-      borderColor: "border-amber-200",
-      textColor: "text-amber-700",
+      bgColor: "bg-amber-500/15",
+      borderColor: "border-amber-500/40",
+      textColor: "text-amber-200",
       icon: Clock,
       label: "Partial",
     },
     unavailable: {
-      bgColor: "bg-red-50",
-      borderColor: "border-red-200",
-      textColor: "text-red-700",
+      bgColor: "bg-red-500/15",
+      borderColor: "border-red-500/40",
+      textColor: "text-red-200",
       icon: AlertCircle,
       label: "Unavailable",
     },
@@ -109,23 +109,23 @@ export function VenueCard({
           onClick={isClickable ? onSelect : undefined}
           disabled={!isClickable}
           className={cn(
-            "relative flex flex-col rounded-xl border-2 overflow-hidden transition-all text-left w-full",
+            "relative flex flex-col rounded-xl border overflow-hidden transition-all text-left w-full",
             // Base styles
-            "bg-white shadow-sm hover:shadow-md",
+            "bg-card shadow-sm hover:shadow-md",
             // Selected state
-            isSelected && "ring-2 ring-[#1B4D3E] border-[#1B4D3E]",
+            isSelected && "border-[#1B4D3E] ring-2 ring-[#1B4D3E]",
             // Available state
-            status === "available" && !isSelected && "border-gray-200 hover:border-emerald-300",
+            status === "available" && !isSelected && "border-emerald-500/40",
             // Partial state
-            status === "partial" && !isSelected && "border-amber-200 hover:border-amber-300",
+            status === "partial" && !isSelected && "border-amber-500/40",
             // Unavailable state
-            isUnavailable && "opacity-60 cursor-not-allowed border-red-200",
+            isUnavailable && "opacity-60 cursor-not-allowed border-red-500/40",
             // Clickable cursor
             isClickable && "cursor-pointer"
           )}
         >
           {/* Image or placeholder */}
-          <div className="relative h-24 bg-gray-100 overflow-hidden">
+          <div className="relative h-24 bg-muted overflow-hidden">
             {imageUrl ? (
               <img
                 src={imageUrl}
@@ -133,8 +133,8 @@ export function VenueCard({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-                <Building2 className="w-10 h-10 text-gray-400" />
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/60">
+                <Building2 className="w-10 h-10 text-muted-foreground/70" />
               </div>
             )}
 
@@ -160,15 +160,15 @@ export function VenueCard({
 
           {/* Content */}
           <div className="p-3 space-y-1">
-            <h4 className="font-medium text-sm text-gray-900 truncate">{name}</h4>
-            
-            <div className="flex items-center gap-1 text-xs text-gray-500">
+            <h4 className="font-medium text-sm text-foreground truncate">{name}</h4>
+
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <MapPin className="w-3 h-3 flex-shrink-0" />
               <span className="truncate">{location}</span>
             </div>
 
             {capacity && (
-              <div className="flex items-center gap-1 text-xs text-gray-500">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Users className="w-3 h-3 flex-shrink-0" />
                 <span>Capacity: {capacity}</span>
               </div>
@@ -176,8 +176,8 @@ export function VenueCard({
 
             {/* Conflict summary for partial availability */}
             {status === "partial" && conflicts.length > 0 && (
-              <div className="mt-2 pt-2 border-t border-gray-100">
-                <p className="text-[10px] text-amber-600 font-medium">
+              <div className="mt-2 pt-2 border-t border-border/60">
+                <p className="text-[10px] text-amber-300 font-medium">
                   {conflicts.length} session{conflicts.length !== 1 ? "s" : ""} conflicting
                 </p>
               </div>

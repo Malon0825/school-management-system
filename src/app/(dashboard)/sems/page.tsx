@@ -3,8 +3,9 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Calendar as CalendarIcon, ShieldAlert, X, QrCode, Users, ChevronDown, ChevronRight, Search, Minus, UserX, Check, AlertTriangle, Building2, MapPin, Trash2 } from "lucide-react";
 import { VenueCard, type VenueAvailabilityStatus, type SessionConflict } from "@/components/venue-card";
+import { EventAttendanceInsights } from "@/components/event-attendance-insights";
 import { useRouter } from "next/navigation";
-import { format, eachDayOfInterval, isSameDay } from "date-fns";
+import { format, eachDayOfInterval, isSameDay, isBefore, startOfToday } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -498,6 +499,7 @@ export default function EventsPage() {
   const [venueFilter, setVenueFilter] = useState<string>("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createEventRange, setCreateEventRange] = useState<DateRange | undefined>(undefined);
+  const today = startOfToday();
   
   // Per-date session configuration state
   const [dateSessionConfigs, setDateSessionConfigs] = useState<Map<string, DateSessionConfig>>(new Map());
@@ -2101,6 +2103,15 @@ export default function EventsPage() {
         </Card>
       </div>
 
+      <EventAttendanceInsights events={eventsList.map((event) => ({
+        id: event.id,
+        title: event.title,
+        startDate: event.startDate,
+        endDate: event.endDate,
+        status: event.status,
+      }))}
+      />
+
       {isCreateDialogOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm dialog-backdrop-animate">
           <div className="bg-card rounded-2xl shadow-xl w-full max-w-2xl border border-border/50 dialog-panel-animate">
@@ -2234,10 +2245,10 @@ export default function EventsPage() {
                             type="button"
                             onClick={() => setAudienceMode(value)}
                             className={cn(
-                              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
                               audienceMode === value
-                                ? "bg-[#1B4D3E] text-white shadow-sm"
-                                : "bg-gray-100 text-muted-foreground hover:bg-accent"
+                                ? "bg-[#1B4D3E] text-white border-[#1B4D3E] shadow-sm"
+                                : "bg-card text-muted-foreground border-border hover:bg-muted"
                             )}
                           >
                             <Icon className="h-3.5 w-3.5" />
@@ -2254,11 +2265,11 @@ export default function EventsPage() {
 
                 {/* Mode: All Students */}
                 {audienceMode === "all" && (
-                  <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100">
-                    <p className="text-sm text-emerald-800">
-                      <strong>All active students</strong> will be allowed to attend this event.
+                  <div className="p-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10">
+                    <p className="text-sm text-emerald-200">
+                      <strong className="font-semibold">All active students</strong> will be allowed to attend this event.
                     </p>
-                    <p className="text-xs text-emerald-600 mt-1">
+                    <p className="text-xs text-emerald-300 mt-1">
                       Use exclusions below if you need to exclude specific levels, sections, or students.
                     </p>
                   </div>
@@ -2732,8 +2743,10 @@ export default function EventsPage() {
                               });
                             }}
                             className={cn(
-                              "w-full flex items-center justify-between px-3 py-1.5 text-[11px] text-left hover:bg-emerald-50",
-                              isSelected && "bg-emerald-100 text-emerald-900"
+                              "w-full flex items-center justify-between px-3 py-1.5 text-[11px] text-left transition-colors",
+                              isSelected
+                                ? "bg-emerald-500/10 text-emerald-200"
+                                : "hover:bg-muted/60 text-muted-foreground"
                             )}
                           >
                             <span className="truncate">
@@ -2741,7 +2754,7 @@ export default function EventsPage() {
                               <span className="ml-1 text-[10px] text-muted-foreground">({user.email})</span>
                             </span>
                             {isSelected && (
-                              <span className="ml-2 text-[10px] text-emerald-700 font-medium">Selected</span>
+                              <span className="ml-2 text-[10px] text-emerald-300 font-medium">Selected</span>
                             )}
                           </button>
                         );
@@ -2819,6 +2832,7 @@ export default function EventsPage() {
                       mode="range"
                       selected={createEventRange}
                       onSelect={setCreateEventRange}
+                      disabled={(date) => isBefore(date, today)}
                       initialFocus
                     />
                   </PopoverContent>
@@ -2967,20 +2981,26 @@ export default function EventsPage() {
                             type="button"
                             onClick={() => toggleSessionPeriod(period)}
                             className={cn(
-                              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
                               isActive
-                                ? "bg-[#1B4D3E] text-white shadow-sm"
-                                : "bg-gray-100 text-muted-foreground hover:bg-accent",
+                                ? "bg-[#1B4D3E] text-white border-[#1B4D3E] shadow-sm"
+                                : "bg-card text-muted-foreground border-border hover:bg-muted",
                             )}
                           >
                             <span
                               className={cn(
                                 "h-1.5 w-1.5 rounded-full",
                                 period === "morning"
-                                  ? "bg-amber-500"
+                                  ? isActive
+                                    ? "bg-amber-400"
+                                    : "bg-amber-400/60"
                                   : period === "afternoon"
-                                  ? "bg-sky-500"
-                                  : "bg-indigo-500",
+                                  ? isActive
+                                    ? "bg-sky-400"
+                                    : "bg-sky-400/60"
+                                  : isActive
+                                  ? "bg-indigo-400"
+                                  : "bg-indigo-400/60",
                               )}
                             />
                             {label}

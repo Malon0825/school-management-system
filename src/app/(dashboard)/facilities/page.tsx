@@ -226,6 +226,10 @@ export default function FacilitiesPage() {
         capacity: "",
         status: "operational",
       });
+
+      toast.success("Facility added", {
+        description: `${trimmedName} has been created successfully.`,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to save facility.";
       setErrorMessage(message);
@@ -334,6 +338,10 @@ export default function FacilitiesPage() {
 
       setSelectedFacility(null);
       setEditFormState(null);
+
+      toast.success("Changes saved", {
+        description: `${trimmedName} has been updated successfully.`,
+      });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unable to update facility.";

@@ -200,16 +200,21 @@ export async function GET(request: NextRequest) {
         status = now >= startDate ? "ongoing" : "upcoming";
       }
 
-      // facilities is returned as an array from the join
-      const facilityArr = event.facilities as unknown as Array<{ name: string }> | null;
-      const facility = facilityArr && facilityArr.length > 0 ? facilityArr[0] : null;
+      const facilities = event.facilities as unknown;
+      let facilityName: string | null = null;
+
+      if (Array.isArray(facilities)) {
+        facilityName = facilities.length > 0 ? facilities[0]?.name ?? null : null;
+      } else if (facilities && typeof facilities === "object") {
+        facilityName = (facilities as { name?: string }).name ?? null;
+      }
 
       return {
         id: event.id,
         title: event.title,
         startDate: event.start_date,
         endDate: event.end_date,
-        facilityName: facility?.name ?? null,
+        facilityName,
         sessionsCount: sessionCountByEvent.get(event.id) ?? 0,
         status,
       };

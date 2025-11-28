@@ -234,9 +234,14 @@ export default function AdminDashboardPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Overview of your school management system</p>
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <TrendingUp className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+            <p className="text-sm text-muted-foreground">Overview of your school management system</p>
+          </div>
         </div>
       </div>
 
@@ -372,7 +377,14 @@ export default function AdminDashboardPage() {
         {/* System Health / Quick Actions */}
         <div className="space-y-6">
           {/* Attendance Summary */}
-          <Card className="border-border/50 shadow-sm bg-gradient-to-br from-card via-card to-primary/5">
+          <Card
+            className="border-border/50 shadow-sm bg-gradient-to-br from-card via-card to-primary/5 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-transform"
+            onClick={() => {
+              if (!loading) {
+                window.location.href = "/sems";
+              }
+            }}
+          >
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-primary" />

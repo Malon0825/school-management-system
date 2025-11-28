@@ -37,3 +37,12 @@ WITH CHECK (
   auth.role() = 'authenticated'
   AND auth.uid() = id
 );
+
+-- Allow authenticated users to read attendance logs (for dashboards/reporting)
+ALTER TABLE attendance_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can read attendance logs"
+ON attendance_logs
+FOR SELECT
+TO authenticated
+USING (true);

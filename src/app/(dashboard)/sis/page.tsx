@@ -1115,12 +1115,12 @@ export default function RegistryPage() {
                       <TableCell className="text-muted-foreground">{student.lrn}</TableCell>
                       <TableCell className="text-right">
                         <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
                             student.status === "Active"
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                              ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/40"
                               : student.status === "Inactive"
-                              ? "bg-gray-100 text-muted-foreground"
-                              : "bg-amber-50 text-amber-700 border border-amber-100"
+                              ? "bg-muted text-muted-foreground border-border/60"
+                              : "bg-amber-500/10 text-amber-300 border-amber-500/40"
                           }`}
                         >
                           {student.status}
