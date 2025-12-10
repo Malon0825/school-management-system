@@ -702,6 +702,23 @@ export default function EventsPage() {
     };
   }, []);
 
+  // Lock background scroll when the Create/Edit Event dialog is open
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const originalOverflow = document.body.style.overflow;
+
+    if (isCreateDialogOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = originalOverflow;
+    }
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isCreateDialogOpen]);
+
   const roleSignature = useMemo(() => (user?.roles ?? []).join("|"), [user?.roles]);
 
   const isAdminUser = useMemo(
@@ -2502,10 +2519,10 @@ export default function EventsPage() {
 
       {isCreateDialogOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm dialog-backdrop-animate">
-          <div className="bg-card rounded-2xl shadow-xl w-full max-w-2xl border border-border/50 dialog-panel-animate">
+          <div className="bg-card rounded-2xl shadow-xl w-full max-w-5xl lg:w-[1100px] border border-border/50 dialog-panel-animate max-h-[90vh] flex flex-col">
             <div className="flex items-start justify-between px-6 pt-5 pb-3 border-b border-border/50">
               <div>
-                <h2 className="text-lg font-bold text-foreground">
+                <h2 className="text-xl font-bold text-foreground">
                   {isEditMode ? "Edit Event" : "Create Event"}
                 </h2>
                 <p className="text-sm text-muted-foreground">
@@ -2528,7 +2545,7 @@ export default function EventsPage() {
             </div>
 
             <form
-              className="px-6 pb-5 pt-4 space-y-6 max-h-[70vh] overflow-y-auto hide-scrollbar"
+              className="px-6 pb-5 pt-4 space-y-6 overflow-y-auto hide-scrollbar flex-1"
               onSubmit={handleEventFormSubmit}
             >
               {/* Loading state for edit mode */}
