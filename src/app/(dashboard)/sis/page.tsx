@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useEffect, useState } from "react";
-import { Users, X, FileSpreadsheet, FileText, Download, ChevronDown, Loader2 } from "lucide-react";
+import { Users, X, FileSpreadsheet, FileText, Download, ChevronDown, Loader2, Settings, Layers, LayoutGrid } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -102,6 +102,7 @@ export default function RegistryPage() {
   const [editStudentSectionName, setEditStudentSectionName] = useState<string>("");
   const [editStudentStatus, setEditStudentStatus] = useState<StudentStatus>("Active");
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isManageMenuOpen, setIsManageMenuOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [studentCredentialsForDownload, setStudentCredentialsForDownload] = useState<
     StudentCredential[]
@@ -977,21 +978,23 @@ export default function RegistryPage() {
     }
   }
 
-  const filteredStudents = students.filter((student) => {
-    if (levelFilter !== "all" && student.grade !== levelFilter) return false;
-    if (sectionFilter !== "all" && student.section !== sectionFilter) return false;
+  const filteredStudents = students
+    .filter((student) => {
+      if (levelFilter !== "all" && student.grade !== levelFilter) return false;
+      if (sectionFilter !== "all" && student.section !== sectionFilter) return false;
 
-    if (searchTerm.trim()) {
-      const q = searchTerm.toLowerCase();
-      return (
-        student.name.toLowerCase().includes(q) ||
-        student.lrn.toLowerCase().includes(q) ||
-        `${student.grade}-${student.section}`.toLowerCase().includes(q)
-      );
-    }
+      if (searchTerm.trim()) {
+        const q = searchTerm.toLowerCase();
+        return (
+          student.name.toLowerCase().includes(q) ||
+          student.lrn.toLowerCase().includes(q) ||
+          `${student.grade}-${student.section}`.toLowerCase().includes(q)
+        );
+      }
 
-    return true;
-  });
+      return true;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const addStudentSectionsForSelectedLevel = addStudentLevelName
     ? getSectionsForLevelName(addStudentLevelName)
@@ -1037,109 +1040,162 @@ export default function RegistryPage() {
   return (
     <>
     <div className="flex-1 flex flex-col space-y-6 min-h-0 overflow-y-auto hide-scrollbar px-4 py-4 sm:px-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-start gap-3 w-full">
-          <div className="hidden sm:flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
-            <Users className="w-5 h-5" />
+      {/* Header Section */}
+      <div className="flex flex-col gap-4">
+        {/* Title and Actions Row */}
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          {/* Title */}
+          <div className="flex items-start gap-3 shrink-0">
+            <div className="hidden sm:flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Student Registry</h1>
+              <p className="text-sm text-muted-foreground">
+                Central record of enrolled students, organized by grade and section.
+              </p>
+              {studentsError && (
+                <p className="mt-1 text-xs text-red-600">{studentsError}</p>
+              )}
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Student Registry (SIS)</h1>
-            <p className="text-sm text-muted-foreground">
-              Central record of enrolled students, organized by grade and section.
-            </p>
-            {studentsError && (
-              <p className="mt-1 text-xs text-red-600">{studentsError}</p>
-            )}
-          </div>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 w-full lg:w-auto lg:flex-nowrap lg:items-center lg:gap-3 lg:justify-end">
-          <Button
-            type="button"
-            className="bg-card border border-border text-muted-foreground hover:bg-muted text-sm px-4 py-2 rounded-lg shadow-sm w-full sm:w-auto lg:w-auto"
-            onClick={() => setIsBulkImportDialogOpen(true)}
-          >
-            Bulk Import
-          </Button>
-          
-          {/* Export QR Codes Dropdown */}
-          <div className="relative w-full sm:w-auto lg:w-auto">
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
-              className="bg-card border border-border text-muted-foreground hover:bg-muted text-sm px-4 py-2 rounded-lg shadow-sm inline-flex items-center gap-1.5 w-full"
-              onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
-              disabled={isExporting || students.length === 0}
+              variant="outline"
+              size="sm"
+              className="text-sm"
+              onClick={() => setIsBulkImportDialogOpen(true)}
             >
-              <Download className="w-4 h-4" />
-              {isExporting ? "Exporting..." : "Export QR"}
-              <ChevronDown className="w-3.5 h-3.5" />
+              Bulk Import
             </Button>
-            
-            {isExportMenuOpen && (
-              <>
-                {/* Backdrop to close menu */}
-                <div 
-                  className="fixed inset-0 z-10" 
-                  onClick={() => setIsExportMenuOpen(false)} 
-                />
-                
-                {/* Dropdown menu */}
-                <div className="absolute right-0 mt-1 w-52 bg-card rounded-lg shadow-lg border border-border py-1 z-20">
-                  <button
-                    type="button"
-                    className="w-full px-4 py-2.5 text-left text-sm text-muted-foreground hover:bg-muted flex items-center gap-3"
-                    onClick={() => void handleExportQrCodes("excel")}
-                  >
-                    <FileSpreadsheet className="w-4 h-4 text-green-600" />
-                    <div>
-                      <div className="font-medium">Excel (.xlsx)</div>
-                      <div className="text-xs text-muted-foreground">Spreadsheet with QR images</div>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    className="w-full px-4 py-2.5 text-left text-sm text-muted-foreground hover:bg-muted flex items-center gap-3"
-                    onClick={() => void handleExportQrCodes("word")}
-                  >
-                    <FileText className="w-4 h-4 text-blue-600" />
-                    <div>
-                      <div className="font-medium">Word (.docx)</div>
-                      <div className="text-xs text-muted-foreground">Printable ID cards</div>
-                    </div>
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-          
-          <div className="flex flex-col gap-2 sm:flex-row sm:gap-2 w-full sm:w-auto lg:flex-nowrap lg:gap-2">
+
+            {/* Export QR Codes Dropdown */}
+            <div className="relative">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-sm inline-flex items-center gap-1.5"
+                onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
+                disabled={isExporting || students.length === 0}
+              >
+                <Download className="w-4 h-4" />
+                {isExporting ? "Exporting..." : "Export QR"}
+                <ChevronDown className="w-3.5 h-3.5" />
+              </Button>
+
+              {isExportMenuOpen && (
+                <>
+                  {/* Backdrop to close menu */}
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setIsExportMenuOpen(false)}
+                  />
+
+                  {/* Dropdown menu */}
+                  <div className="absolute right-0 mt-1 w-52 bg-card rounded-lg shadow-lg border border-border py-1 z-20">
+                    <button
+                      type="button"
+                      className="w-full px-4 py-2.5 text-left text-sm text-muted-foreground hover:bg-muted flex items-center gap-3"
+                      onClick={() => void handleExportQrCodes("excel")}
+                    >
+                      <FileSpreadsheet className="w-4 h-4 text-green-600" />
+                      <div>
+                        <div className="font-medium">Excel (.xlsx)</div>
+                        <div className="text-xs text-muted-foreground">Spreadsheet with QR images</div>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      className="w-full px-4 py-2.5 text-left text-sm text-muted-foreground hover:bg-muted flex items-center gap-3"
+                      onClick={() => void handleExportQrCodes("word")}
+                    >
+                      <FileText className="w-4 h-4 text-blue-600" />
+                      <div>
+                        <div className="font-medium">Word (.docx)</div>
+                        <div className="text-xs text-muted-foreground">Printable ID cards</div>
+                      </div>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Manage Dropdown */}
+            <div className="relative">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-sm inline-flex items-center gap-1.5"
+                onClick={() => setIsManageMenuOpen(!isManageMenuOpen)}
+              >
+                <Settings className="w-4 h-4" />
+                Manage
+                <ChevronDown className="w-3.5 h-3.5" />
+              </Button>
+
+              {isManageMenuOpen && (
+                <>
+                  {/* Backdrop to close menu */}
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setIsManageMenuOpen(false)}
+                  />
+
+                  {/* Dropdown menu */}
+                  <div className="absolute right-0 mt-1 w-48 bg-card rounded-lg shadow-lg border border-border py-1 z-20">
+                    <button
+                      type="button"
+                      className="w-full px-4 py-2.5 text-left text-sm text-muted-foreground hover:bg-muted flex items-center gap-3"
+                      onClick={() => {
+                        setIsLevelDialogOpen(true);
+                        setIsManageMenuOpen(false);
+                      }}
+                    >
+                      <Layers className="w-4 h-4 text-blue-500" />
+                      <div>
+                        <div className="font-medium">Levels</div>
+                        <div className="text-xs text-muted-foreground">Grade levels & years</div>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      className="w-full px-4 py-2.5 text-left text-sm text-muted-foreground hover:bg-muted flex items-center gap-3"
+                      onClick={() => {
+                        setIsSectionDialogOpen(true);
+                        setIsManageMenuOpen(false);
+                      }}
+                    >
+                      <LayoutGrid className="w-4 h-4 text-purple-500" />
+                      <div>
+                        <div className="font-medium">Sections</div>
+                        <div className="text-xs text-muted-foreground">Class sections</div>
+                      </div>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
             <Button
               type="button"
-              className="bg-card border border-border text-muted-foreground hover:bg-muted text-sm px-4 py-2 rounded-lg shadow-sm w-full sm:w-auto"
-              onClick={() => setIsLevelDialogOpen(true)}
+              size="sm"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 text-sm"
+              onClick={() => {
+                setAddStudentError(null);
+                setAddStudentLevelName("");
+                setAddStudentSectionName("");
+                setAddStudentStatus("Active");
+                setIsAddStudentDialogOpen(true);
+              }}
             >
-              Manage Levels
-            </Button>
-            <Button
-              type="button"
-              className="bg-card border border-border text-muted-foreground hover:bg-muted text-sm px-4 py-2 rounded-lg shadow-sm w-full sm:w-auto"
-              onClick={() => setIsSectionDialogOpen(true)}
-            >
-              Manage Sections
+              + Add Student
             </Button>
           </div>
-          <Button
-            type="button"
-            className="bg-[#1B4D3E] text-white hover:bg-[#163e32] text-sm px-4 py-2 rounded-lg shadow-sm w-full sm:w-auto"
-            onClick={() => {
-              setAddStudentError(null);
-              setAddStudentLevelName("");
-              setAddStudentSectionName("");
-              setAddStudentStatus("Active");
-              setIsAddStudentDialogOpen(true);
-            }}
-          >
-            + Add Student
-          </Button>
         </div>
       </div>
 
@@ -1228,8 +1284,8 @@ export default function RegistryPage() {
           </Alert>
         )}
 
-      <Card className="flex-1 flex flex-col w-full border-border shadow-sm">
-        <CardHeader className="border-b border-gray-50 pb-4">
+      <Card className="flex flex-col w-full border-border shadow-sm max-h-[calc(100vh-280px)]">
+        <CardHeader className="border-b border-gray-50 pb-4 shrink-0">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
               <CardTitle className="text-lg font-bold text-foreground">Student List</CardTitle>
@@ -1279,13 +1335,13 @@ export default function RegistryPage() {
           <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-auto px-4 pb-4 sm:px-6 sm:pb-6">
             <Table className="w-full min-w-[640px]">
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10">
                 <TableRow className="bg-muted">
-                  <TableHead className="font-bold text-primary">Student Name</TableHead>
-                  <TableHead className="font-bold text-primary">Level / Year</TableHead>
-                  <TableHead className="font-bold text-primary">Section</TableHead>
-                  <TableHead className="font-bold text-primary">LRN / ID</TableHead>
-                  <TableHead className="text-right font-bold text-primary">Status</TableHead>
+                  <TableHead className="font-bold text-primary bg-muted">Student Name</TableHead>
+                  <TableHead className="font-bold text-primary bg-muted">Level / Year</TableHead>
+                  <TableHead className="font-bold text-primary bg-muted">Section</TableHead>
+                  <TableHead className="font-bold text-primary bg-muted">LRN / ID</TableHead>
+                  <TableHead className="text-right font-bold text-primary bg-muted">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

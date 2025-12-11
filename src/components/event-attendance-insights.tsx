@@ -371,7 +371,7 @@ export function EventAttendanceInsights({ events }: EventAttendanceInsightsProps
 
   if (!hasEvents) {
     return (
-      <Card className="mt-4 border-dashed border-border/60 bg-card/60">
+      <Card className="border-dashed border-border/60 bg-card/60">
         <CardHeader>
           <CardTitle className="text-base">Event Attendance Insights</CardTitle>
           <CardDescription>No events available yet. Create an event to see attendance insights.</CardDescription>
@@ -381,7 +381,7 @@ export function EventAttendanceInsights({ events }: EventAttendanceInsightsProps
   }
 
   return (
-    <Card className="md:mr-6 md:ml-6 ml-4 mr-4 border-border/60 bg-gradient-to-br from-card via-card to-muted/10">
+    <Card className="border-border/60 bg-gradient-to-br from-card via-card to-muted/10">
       <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between border-b border-border/60 pb-4">
         <div>
           <CardTitle className="text-base flex items-center gap-2">

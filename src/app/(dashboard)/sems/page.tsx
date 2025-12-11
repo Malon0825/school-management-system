@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Calendar as CalendarIcon, ShieldAlert, X, QrCode, Users, ChevronDown, ChevronRight, Search, Minus, UserX, Check, Megaphone, AlertTriangle, Building2, MapPin, Trash2 } from "lucide-react";
+import { Calendar as CalendarIcon, ShieldAlert, X, QrCode, Users, ChevronDown, ChevronRight, Search, Minus, UserX, Check, Megaphone, AlertTriangle, Building2, MapPin, Trash2, CalendarDays, BarChart3 } from "lucide-react";
 import { VenueCard, type VenueAvailabilityStatus, type SessionConflict } from "@/components/venue-card";
 import { EventAttendanceInsights } from "@/components/event-attendance-insights";
 import { useRouter } from "next/navigation";
 import { format, eachDayOfInterval, isSameDay, isBefore, startOfToday } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -2225,13 +2226,26 @@ export default function EventsPage() {
           </div>
         </div>
 
-        <Card className="flex-1 flex flex-col w-full border-border shadow-sm">
-          <CardHeader className="border-b border-border/80 pb-4 bg-card/95">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <CardTitle className="text-lg font-bold text-foreground">List of Events</CardTitle>
-                <CardDescription>Events scheduled for today with live status.</CardDescription>
-              </div>
+        <Tabs defaultValue="events" className="flex-1 flex flex-col">
+          <TabsList className="w-full justify-start bg-muted/50 border border-border rounded-lg p-1 mb-4">
+            <TabsTrigger value="events" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <CalendarDays className="w-4 h-4" />
+              List of Events
+            </TabsTrigger>
+            <TabsTrigger value="insights" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <BarChart3 className="w-4 h-4" />
+              Attendance Insights
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="events" className="flex-1 flex flex-col mt-0">
+            <Card className="flex-1 flex flex-col w-full border-border shadow-sm">
+              <CardHeader className="border-b border-border/80 pb-4 bg-card/95">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <CardTitle className="text-lg font-bold text-foreground">List of Events</CardTitle>
+                    <CardDescription>Events scheduled for today with live status.</CardDescription>
+                  </div>
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-2 w-full">
                 {eventSelectionState.hasSelection && (
                   <span className="text-xs text-muted-foreground">
@@ -2505,17 +2519,21 @@ export default function EventsPage() {
               </Table>
             </div>
           </CardContent>
-        </Card>
-      </div>
+            </Card>
+          </TabsContent>
 
-      <EventAttendanceInsights events={eventsList.map((event) => ({
-        id: event.id,
-        title: event.title,
-        startDate: event.startDate,
-        endDate: event.endDate,
-        status: event.status,
-      }))}
-      />
+          <TabsContent value="insights" className="flex-1 flex flex-col mt-0">
+            <EventAttendanceInsights events={eventsList.map((event) => ({
+              id: event.id,
+              title: event.title,
+              startDate: event.startDate,
+              endDate: event.endDate,
+              status: event.status,
+            }))}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
 
       {isCreateDialogOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm dialog-backdrop-animate">
