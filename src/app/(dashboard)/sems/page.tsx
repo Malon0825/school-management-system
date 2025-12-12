@@ -720,6 +720,52 @@ export default function EventsPage() {
     };
   }, [isCreateDialogOpen]);
 
+  // Load levels and sections when dialog opens
+  useEffect(() => {
+    if (!isCreateDialogOpen) return;
+    if (levels.length > 0) return; // Already loaded
+
+    let isCancelled = false;
+
+    async function loadLevelsAndSections() {
+      setIsLoadingLevels(true);
+
+      try {
+        const response = await fetch("/api/sis/levels", { method: "GET" });
+
+        if (shouldRedirectToLogin(response)) return;
+
+        const body = (await response.json().catch(() => null)) as {
+          success?: boolean;
+          data?: { levels: LevelDto[]; sections: SectionDto[] };
+          error?: { message?: string };
+        } | null;
+
+        if (!response.ok || !body?.success || !body.data) {
+          console.error("[EventsPage] Failed to load levels:", body?.error?.message);
+          return;
+        }
+
+        if (!isCancelled) {
+          setLevels(body.data.levels);
+          setSections(body.data.sections);
+        }
+      } catch (error) {
+        console.error("[EventsPage] Failed to load levels", error);
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingLevels(false);
+        }
+      }
+    }
+
+    void loadLevelsAndSections();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isCreateDialogOpen, levels.length]);
+
   const roleSignature = useMemo(() => (user?.roles ?? []).join("|"), [user?.roles]);
 
   const isAdminUser = useMemo(
@@ -2563,7 +2609,7 @@ export default function EventsPage() {
             </div>
 
             <form
-              className="px-6 pb-5 pt-4 space-y-6 overflow-y-auto hide-scrollbar flex-1"
+              className="px-6 pb-5 pt-4 space-y-6 overflow-y-auto flex-1"
               onSubmit={handleEventFormSubmit}
             >
               {/* Loading state for edit mode */}
