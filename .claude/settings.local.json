@@ -6,7 +6,10 @@
       "Bash(find:*)",
       "Bash(cat:*)",
       "Bash(npm install:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(grep:*)"
     ]
   }
 }
