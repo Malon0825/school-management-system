@@ -89,8 +89,10 @@ export default function EventScannerPage() {
   const detectorCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const nativeUseCanvasRef = useRef(true);
   const nativeDetectErrorCountRef = useRef(0);
+  const hasFallenBackToZxingRef = useRef(false);
   const scanningModeRef = useRef<"native" | "zxing" | null>(null);
   const zxingReaderRef = useRef<BrowserQRCodeReader | null>(null);
+  const zxingControlsRef = useRef<{ stop: () => void } | null>(null);
 
   // Status styling
   const getStatusStyles = (status: ScannedStudent["status"]) => {
@@ -373,6 +375,7 @@ export default function EventScannerPage() {
     lastDetectTimeRef.current = 0;
     nativeUseCanvasRef.current = true;
     nativeDetectErrorCountRef.current = 0;
+    hasFallenBackToZxingRef.current = false;
     setScannerModeLabel("—");
     setScanFeedbackLabel(null);
     setScanFeedbackVariant(null);
@@ -389,6 +392,14 @@ export default function EventScannerPage() {
         track.stop();
       }
       streamRef.current = null;
+    }
+
+    if (zxingControlsRef.current) {
+      try {
+        zxingControlsRef.current.stop();
+      } catch {
+      }
+      zxingControlsRef.current = null;
     }
 
     if (scanningModeRef.current === "zxing" && zxingReaderRef.current) {
@@ -439,6 +450,45 @@ export default function EventScannerPage() {
   async function startScanning() {
     if (isScanningRef.current) return;
     setCameraError(null);
+    hasFallenBackToZxingRef.current = false;
+
+    async function startZxingFromCurrentVideo() {
+      const video = videoRef.current;
+      if (!video) return;
+
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+
+      const reader = new BrowserQRCodeReader();
+      zxingReaderRef.current = reader;
+      isScanningRef.current = true;
+      scanningModeRef.current = "zxing";
+      setScannerModeLabel("ZXing");
+
+      await reader.decodeFromVideoElement(video, (result, err, controls) => {
+        zxingControlsRef.current = controls;
+
+        if (!isScanningRef.current) {
+          controls.stop();
+          return;
+        }
+
+        if (result) {
+          const value = result.getText();
+          const now = Date.now();
+          const lastValue = lastScanValueRef.current;
+          const lastTime = lastScanTimeRef.current;
+
+          if (value && (value !== lastValue || now - lastTime > 1000)) {
+            lastScanValueRef.current = value;
+            lastScanTimeRef.current = now;
+            void processScan(value);
+          }
+        }
+      });
+    }
 
     // Helper to get camera stream with fallback constraints for mobile compatibility
     async function getCameraStream(): Promise<MediaStream> {
@@ -585,9 +635,13 @@ export default function EventScannerPage() {
               nativeDetectErrorCountRef.current += 1;
               if (nativeUseCanvasRef.current) {
                 nativeUseCanvasRef.current = false;
-              } else if (nativeDetectErrorCountRef.current >= 10) {
-                await stopScanning();
-                void startScanning();
+              } else if (nativeDetectErrorCountRef.current >= 10 && !hasFallenBackToZxingRef.current) {
+                hasFallenBackToZxingRef.current = true;
+                try {
+                  await startZxingFromCurrentVideo();
+                } catch {
+                  await stopScanning();
+                }
                 return;
               }
             }
@@ -627,6 +681,7 @@ export default function EventScannerPage() {
 
       // Use decodeFromVideoElement instead of decodeFromVideoDevice for better mobile support
       await reader.decodeFromVideoElement(video, (result, err, controls) => {
+        zxingControlsRef.current = controls;
         if (!isScanningRef.current) {
           controls.stop();
           return;
